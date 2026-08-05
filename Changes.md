@@ -152,3 +152,28 @@ Version 1.4.0:
 Version 1.4.1:
 - Increased default dock columns for iPads
 - Fixed bug causing unexpectedly long respring times
+
+Version 1.5.0:
+- Added roothide support
+- Added "Show in Dock", which labels dock icons including recents in the floating dock
+- Added "Label Y Offset" to the dock and homescreen editors, for moving labels clear of anything drawn beneath them
+- Added "Lock Label Text", which stops page labels being changed by a stray tap
+- Weather is only fetched when the icon is shown or the label uses %TEMPERATURE% or %LOCATION%, so location is left alone when neither is in use, and the geocode cache it left behind is cleared
+- Fixed the floating dock showing only two recents whatever the setting said
+- Cut the work done per icon while a page is laid out, most noticeable swiping between pages the first time after a respring
+- Icon labels, badges and drop shadows no longer read preferences on every draw
+- Drop shadows are only rebuilt when an icon actually moves or resizes
+- Typing a row or column count below one no longer leaves the homescreen unusable until preferences are reset
+- Settings strings are checked before being applied rather than trusted
+- Fixed an uninitialised widget grid size, and a crash if a future iOS renames the grid size ivars
+- Fixed label text and colours being used without checking their type
+- Fixed icon views holding their page in memory after it was gone
+
+Version 1.5.1:
+- Added an interval for refreshing the weather, off by default since a refresh uses location
+
+Version 1.5.2:
+- Credits can now link somewhere other than Twitter
+
+Version 1.5.3:
+- Label accessories now move with the label they belong to, so an indicator no longer parts company with its text when an offset is set

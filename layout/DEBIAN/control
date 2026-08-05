@@ -2,9 +2,9 @@ Architecture: iphoneos-arm
 Author: ren7995
 Depends: firmware (>= 13.0), mobilesubstrate, preferenceloader, ws.hbang.alderis (>= 1.1)
 Conflicts: com.irepo.boxy4, me.kritanta.homepluspro
-Description: A proper homescreen layout editor for iOS 13-16
-Maintainer: ren7995
+Description: A proper homescreen layout editor for iOS 13-16. This build adds roothide support and icon labels offsets.
+Maintainer: CySxL
 Name: Atria
 Package: me.lau.atria
 Section: Tweaks
-Version: 1.4.1
+Version: 1.5.3
