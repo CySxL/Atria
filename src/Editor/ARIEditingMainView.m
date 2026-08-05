@@ -8,7 +8,7 @@
 #import "../Manager/ARITweakManager.h"
 #import "ARISettingCollectionViewHost.h"
 
-#define CLAMP(x, min, max) x<min ? min : x> max ? max : x;
+#define CLAMP(x, min, max) ((x) < (min) ? (min) : (x) > (max) ? (max) : (x))
 
 @implementation ARIEditingMainView {
     NSMutableArray *_validsettingsForTarget;
@@ -29,7 +29,7 @@
 - (instancetype)initWithTarget:(NSString *)targetLoc {
     self = [super init];
     if(self) {
-        NSArray *allSettingsKeys = [[ARITweakManager sharedInstance] editorSettingsKeys];
+        NSOrderedSet *allSettingsKeys = [[ARITweakManager sharedInstance] editorSettingsKeys];
         _validsettingsForTarget = [NSMutableArray new];
         for(NSString *setting in allSettingsKeys) {
             if([setting hasPrefix:targetLoc]) {
@@ -261,7 +261,7 @@
     if(!self.superview) return;
     if(recognizer.state == UIGestureRecognizerStateBegan) {
         _panTouchdownOffset = [recognizer locationInView:self.superview].y - self.frame.origin.y;
-    } else if(recognizer.state == UIGestureRecognizerStateChanged || recognizer.state != UIGestureRecognizerStateEnded) {
+    } else if(recognizer.state == UIGestureRecognizerStateChanged) {
         [self _animateToPosition:[recognizer locationInView:self.superview].y - _panTouchdownOffset];
     }
 }

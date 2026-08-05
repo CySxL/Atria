@@ -44,7 +44,7 @@
 
     _effectView.alpha = [manager floatValueForKey:@"blur_alpha" forListView:superv];
     if([manager boolValueForKey:@"blurTintEnabled"]) {
-        self.backgroundColor = [[self class] colorFromHexString:[manager rawValueForKey:@"blurTintColor"]
+        self.backgroundColor = [[self class] colorFromHexString:[manager stringValueForKey:@"blurTintColor"]
                                                       withAlpha:[manager floatValueForKey:@"blur_intensity"]];
     } else {
         self.backgroundColor = nil;

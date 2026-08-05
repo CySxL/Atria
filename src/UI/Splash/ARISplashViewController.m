@@ -4,6 +4,7 @@
 //
 
 #import "ARISplashViewController.h"
+#import "../../ARIPaths.h"
 #import "../../Manager/ARITweakManager.h"
 
 // RGB: 81, 8, 126
@@ -32,7 +33,7 @@
         _matEffect.translatesAutoresizingMaskIntoConstraints = NO;
 
         // Tweak icon
-        _tweakIcon = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:@THEOS_PACKAGE_INSTALL_PREFIX "/Library/PreferenceBundles/AtriaPrefs.bundle/glyph.png"] ?: [UIImage systemImageNamed:@"gearshape"]];
+        _tweakIcon = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:ARIPrefsBundlePath(@"/glyph.png")] ?: [UIImage systemImageNamed:@"gearshape"]];
         _tweakIcon.layer.masksToBounds = YES;
         _tweakIcon.layer.cornerCurve = kCACornerCurveContinuous;
         _tweakIcon.layer.cornerRadius = 12;

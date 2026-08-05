@@ -34,6 +34,7 @@
 }
 
 + (UIColor *)colorFromHexString:(NSString *)str withAlpha:(CGFloat)alpha {
+    if(!str) return [UIColor colorWithWhite:1.0 alpha:alpha];
     str = [str stringByReplacingOccurrencesOfString:@"#" withString:@"0x"];
     NSScanner *scanner = [NSScanner scannerWithString:str];
     unsigned int hexCode;

@@ -14,6 +14,7 @@ static NSString *const ARIUpdateLabelVisibilityNotification = @"me.lau.Atria/Upd
 @property (nonatomic, assign) CGPoint portraitOrigin;
 @property (nonatomic, assign) CGPoint landscapeOrigin;
 - (instancetype)init;
+- (void)updateText:(NSTimer *)timer;
 - (void)setupTextField:(UITextField *)textField;
 - (NSString *)loadRawText;
 - (NSString *)processRawText:(NSString *)rawText isScheduledUpdate:(BOOL)scheduled;

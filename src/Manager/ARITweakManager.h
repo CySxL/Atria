@@ -8,6 +8,8 @@
 
 #import "../Options/ARIOption.h"
 
+static NSString *const ARIPreferenceDomain = @"me.lau.AtriaPrefs";
+
 typedef struct SBHIconGridSize {
     short width;
     short height;
@@ -67,7 +69,9 @@ typedef struct SBRootFolderViewMetrics {
 
 @class SBSApplicationShortcutItem;
 @interface SBIconView : UIView
-@property (nonatomic, strong) SBIconListView *_atriaLastIconListView;
+// Weak: this is the icon view's own superview, and a strong reference would
+// keep every list view alive for as long as one of its icons survived
+@property (nonatomic, weak) SBIconListView *_atriaLastIconListView;
 @property (nonatomic, strong) id icon;
 @property (nonatomic, strong) UIView *contentContainerView;
 @property (nonatomic, assign) BOOL allowsLabelArea;
@@ -80,6 +84,7 @@ typedef struct SBRootFolderViewMetrics {
 - (BOOL)isFolderIcon;
 - (CGFloat)iconImageCornerRadius;
 - (void)_atriaUpdateIconContentScale;
+- (void)_atriaApplyDockLabelOffset;
 - (void)_atriaSetupDropShadow:(BOOL)isEditing;
 - (void)_atriaGenerateDropShadow:(CGRect)rect;
 - (SBSApplicationShortcutItem *)_atriaGenerateItemWithTitle:(NSString *)title type:(NSString *)type;
@@ -125,7 +130,7 @@ typedef struct SBRootFolderViewMetrics {
 - (void)_atriaBeginEditing;
 - (void)_atriaUpdateLayoutCache;
 
-- (NSArray<SBIconView *> *)icons;
+- (NSArray *)icons; // SBIcon, not SBIconView
 - (SBIconListViewLayoutMetrics *)layoutMetrics;
 - (SBIcon *)iconAtCoordinate:(struct SBIconCoordinate)co metrics:(id)metrics;
 - (struct SBIconCoordinate)coordinateForIcon:(id)icon;
@@ -196,6 +201,9 @@ typedef struct SBRootFolderViewMetrics {
 @property (nonatomic, readonly, assign) NSUInteger firmwareVersion;
 @property (nonatomic, readonly, assign, getter=isDeviceIPad) BOOL deviceIPad;
 @property (nonatomic, readonly, assign, getter=isShyLabelsInstalled) BOOL shyLabelsInstalled;
+@property (nonatomic, readonly, assign) BOOL usesLabelOffset;
+@property (nonatomic, readonly, assign) BOOL usesDockLabelOffset;
+@property (nonatomic, readonly, assign) BOOL usesHsLabelOffset;
 - (void)updateLayoutForEditing:(BOOL)animated;
 - (void)updateLayoutForRoot:(BOOL)forRoot forDock:(BOOL)forDock animated:(BOOL)animated;
 - (void)relayoutEntireIconModel;
@@ -209,7 +217,7 @@ typedef struct SBRootFolderViewMetrics {
 - (SBIconListView *)firstIconListView;
 
 // Obtain information about available settings
-- (NSArray<NSString *> *)editorSettingsKeys;
+- (NSOrderedSet<NSString *> *)editorSettingsKeys;
 - (ARIOption *)getSettingByKey:(NSString *)key;
 
 // Get/set preference values
@@ -217,13 +225,17 @@ typedef struct SBRootFolderViewMetrics {
 - (float)floatValueForKey:(NSString *)key;
 - (BOOL)boolValueForKey:(NSString *)key;
 - (id)rawValueForKey:(NSString *)key;
+- (NSString *)stringValueForKey:(NSString *)key;
 - (void)setValue:(id)val forKey:(NSString *)key;
+- (void)setRawValue:(id)val forKey:(NSString *)key;
 - (void)resetValueForKey:(NSString *)key;
 
 // Get/set preference values by icon list view
 - (int)intValueForKey:(NSString *)key forListView:(SBIconListView *)list;
+- (NSUInteger)gridValueForKey:(NSString *)key forListView:(SBIconListView *)list;
 - (BOOL)boolValueForKey:(NSString *)key forListView:(SBIconListView *)list;
 - (id)rawValueForKey:(NSString *)key forListView:(SBIconListView *)list;
+- (NSString *)stringValueForKey:(NSString *)key forListView:(SBIconListView *)list;
 - (float)floatValueForKey:(NSString *)key forListView:(SBIconListView *)list;
 - (void)setValue:(id)val forKey:(NSString *)key forListView:(SBIconListView *)listView;
 - (void)resetValueForKey:(NSString *)key forListView:(SBIconListView *)listView;
@@ -232,6 +244,7 @@ typedef struct SBRootFolderViewMetrics {
 - (void)deleteCustomForListView:(SBIconListView *)listView;
 - (void)createCustomForListView:(SBIconListView *)listView;
 - (BOOL)doesCustomConfigForListViewExist:(SBIconListView *)listView;
+- (void)reloadPreferenceState;
 
 + (instancetype)sharedInstance;
 + (UIInterfaceOrientation)currentDeviceOrientation;

@@ -4,6 +4,7 @@
 //
 
 #import "ARILabelView.h"
+#import "../../ARIPaths.h"
 #import "../../Manager/ARITweakManager.h"
 
 #import <CoreText/CTFont.h>
@@ -101,8 +102,14 @@
         _textField.font = [UIFont systemFontOfSize:textSize weight:UIFontWeightSemibold];
     }
 
+    // When locked, the field stops taking touches entirely so a stray tap falls
+    // through to the list view instead of opening the keyboard
+    BOOL locked = [manager boolValueForKey:@"lockPageLabels"];
+    _textField.userInteractionEnabled = !locked;
+    if(locked && [_textField isEditing]) [self endTextEntry];
+
     // Text color
-    _textField.textColor = [[self class] colorFromHexString:[manager rawValueForKey:@"labelTextColor"] withAlpha:1.0F];
+    _textField.textColor = [[self class] colorFromHexString:[manager stringValueForKey:@"labelTextColor"] withAlpha:1.0F];
 
     // Text shadow
     if([manager boolValueForKey:@"pageLabelShadow"] && _textField.layer.shadowOpacity == 0.0) {
@@ -142,6 +149,7 @@
 }
 
 - (BOOL)textFieldShouldBeginEditing:(UITextField *)textField {
+    if([[ARITweakManager sharedInstance] boolValueForKey:@"lockPageLabels"]) return NO;
     [ARITweakManager dismissFloatingDockIfPossible];
     // Set to the raw text
     _textField.text = _rawText;
@@ -194,7 +202,7 @@
     static dispatch_once_t token;
     dispatch_once(&token, ^{
         // Load font once
-        NSData *fileData = [NSData dataWithContentsOfFile:@THEOS_PACKAGE_INSTALL_PREFIX "/Library/PreferenceBundles/AtriaPrefs.bundle/Custom.ttf"];
+        NSData *fileData = [NSData dataWithContentsOfFile:ARIPrefsBundlePath(@"/Custom.ttf")];
         if(fileData) {
             cfdesc = CTFontManagerCreateFontDescriptorFromData((CFDataRef)fileData);
         }

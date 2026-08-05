@@ -16,7 +16,7 @@
 - (NSString *)loadRawText {
     SBIconListView *superv = (SBIconListView *)self.superview;
     ARITweakManager *manager = [ARITweakManager sharedInstance];
-    NSString *text = [manager rawValueForKey:@"pageLabelText" forListView:superv];
+    NSString *text = [manager stringValueForKey:@"pageLabelText" forListView:superv];
     if(text) return text;
     return [NSString stringWithFormat:@"Page %d", (int)[manager indexOfListView:superv] + 1];
 }

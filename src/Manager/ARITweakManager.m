@@ -6,6 +6,7 @@
 #import "ARITweakManager.h"
 #import "ARIEditManager.h"
 
+#import "../ARIPaths.h"
 #import "../Hooks/Shared.h"
 
 #import <objc/runtime.h>
@@ -16,6 +17,15 @@
     NSMutableOrderedSet<NSString *> *_orderedSettingKeys;
     NSMutableDictionary<NSString *, ARIOption *> *_optionsRegistry;
     NSMapTable *_listViewModelMap;
+    NSMutableDictionary<NSNumber *, NSString *> *_prefixCache;
+    NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, NSString *> *> *_pageKeyCache;
+    NSMutableDictionary<NSString *, NSNumber *> *_boolCache;
+    BOOL _hasPerPageLayouts;
+    NSUInteger _preferenceGeneration;
+    NSUInteger _labelOffsetGeneration;
+    BOOL _labelOffsetStateValid;
+    BOOL _usesDockLabelOffset;
+    BOOL _usesHsLabelOffset;
     NSUInteger _firmwareVersion;
     BOOL _deviceIPad;
     BOOL _shyLabelsInstalled;
@@ -38,14 +48,18 @@
         _firmwareVersion = [[[device systemVersion] componentsSeparatedByString:@"."][0] integerValue];
         _deviceIPad = [[device model] hasPrefix:@"iPad"];
         // ShyLabels compatibility
-        _shyLabelsInstalled = [[NSFileManager defaultManager] fileExistsAtPath:@THEOS_PACKAGE_INSTALL_PREFIX "/Library/MobileSubstrate/DynamicLibraries/ShyLabels.dylib"];
+        _shyLabelsInstalled = [[NSFileManager defaultManager] fileExistsAtPath:ARIDylibPath(@"ShyLabels.dylib")];
         // NSUserDefaults to get what values the user set
-        _preferences = [[NSUserDefaults alloc] initWithSuiteName:@"me.lau.AtriaPrefs"];
+        _preferences = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
         _enabled = [_preferences objectForKey:@"enabled"] ? [[_preferences objectForKey:@"enabled"] boolValue] : YES;
         _listViewModelMap = [NSMapTable mapTableWithKeyOptions:NSPointerFunctionsWeakMemory valueOptions:NSPointerFunctionsWeakMemory];
+        _prefixCache = [NSMutableDictionary new];
+        _pageKeyCache = [NSMutableDictionary new];
+        _boolCache = [NSMutableDictionary new];
 
         // Migrate old settings
         [self _migrateSettings];
+        [self reloadPreferenceState];
 
         // Create settings
         _orderedSettingKeys = [[NSMutableOrderedSet alloc] initWithCapacity:50];
@@ -59,6 +73,11 @@
         [self _registerOption:@"showWeatherIcon"
                   translation:nil
                  defaultValue:@(YES)
+                   lowerLimit:0
+                   upperLimit:0];
+        [self _registerOption:@"weatherRefreshInterval"
+                  translation:nil
+                 defaultValue:@(0)
                    lowerLimit:0
                    upperLimit:0];
         [self _registerOption:@"showTooltips"
@@ -198,6 +217,11 @@
                  defaultValue:@(0)
                    lowerLimit:-200.0F
                    upperLimit:200.0F];
+        [self _registerOption:@"hs_label_offset"
+                  translation:@"Label Y Offset"
+                 defaultValue:@(0)
+                   lowerLimit:-40.0F
+                   upperLimit:40.0F];
         [self _registerOption:@"hs_widgetXOffset"
                   translation:@"Widget X Offset"
                  defaultValue:@(0)
@@ -242,6 +266,11 @@
                  defaultValue:@(0)
                    lowerLimit:-100.0F
                    upperLimit:100.0F];
+        [self _registerOption:@"dock_label_offset"
+                  translation:@"Label Offset"
+                 defaultValue:@(0)
+                   lowerLimit:-40.0F
+                   upperLimit:40.0F];
         [self _registerOption:@"dock_inset_top"
                   translation:@"Top Inset"
                  defaultValue:@(0)
@@ -360,7 +389,9 @@
     }
     [self setValue:perPage forKey:@"_perPageListViews"];
 
-    NSDictionary *dict = [_preferences dictionaryRepresentation];
+    // Our own domain only. -dictionaryRepresentation merges in NSGlobalDomain
+    // and the system defaults, which the rewrites below would happily match.
+    NSDictionary *dict = [_preferences persistentDomainForName:ARIPreferenceDomain];
     for(NSString *key in [dict allKeys]) {
         // Welcome is now renamed to label
         if([key hasPrefix:@"welcome"]) {
@@ -391,6 +422,7 @@
 - (void)_migrateSettingFromKey:(NSString *)oldKey toKey:(NSString *)newKey {
     [_preferences setObject:[self rawValueForKey:oldKey] forKey:newKey];
     [_preferences removeObjectForKey:oldKey];
+    [self _didWritePreferences];
 }
 
 - (void)_registerOption:(NSString *)key
@@ -434,9 +466,9 @@
         // Update visible columns and rows for current list view. Otherwise, SB doesn't
         // update this until we start scrolling
         if([current respondsToSelector:@selector(setVisibleColumnRange:)])
-            [current setVisibleColumnRange:NSMakeRange(0, [self intValueForKey:@"hs_columns" forListView:current])];
+            [current setVisibleColumnRange:NSMakeRange(0, [self gridValueForKey:@"hs_columns" forListView:current])];
         if([current respondsToSelector:@selector(setVisibleRowRange:)])
-            [current setVisibleRowRange:NSMakeRange(0, [self intValueForKey:@"hs_rows" forListView:current])];
+            [current setVisibleRowRange:NSMakeRange(0, [self gridValueForKey:@"hs_rows" forListView:current])];
     };
 
     void (^applyLayout)() = ^void() {
@@ -446,10 +478,13 @@
                 // -dockListView doesn't exist on 13 but the ivar does
                 SBIconListView *listView = (SBIconListView *)[rootFolderView valueForKeyPath:@"_dockListView"];
                 [[rootFolderView dockView] _atriaUpdateDockForSettingsChanged];
+                [self _refreshIconViewsInListView:listView];
                 [listView layoutIconsNow];
             } else {
                 SBFloatingDockController *fdController = [objc_getClass("SBFloatingDockController") _atriaSharedInstance];
                 // Icon list and suggestions
+                [self _refreshIconViewsInListView:[fdController userIconListView]];
+                [self _refreshIconViewsInListView:[fdController suggestionsIconListView]];
                 [[fdController userIconListView] layoutIconsNow];
                 [[fdController suggestionsIconListView] layoutIconsNow];
                 SBFloatingDockViewController *fdvc = [fdController floatingDockViewController];
@@ -462,6 +497,10 @@
         }
 
         if(forRoot) {
+            // -layoutIconsNow repositions icon views without changing their
+            // bounds, so it never reaches -layoutSubviews. Only the page on
+            // screen needs refreshing now, the rest catch up when laid out.
+            [self _refreshIconViewsInListView:[self currentListView]];
             // Enumerate list views in root and lay them out as well
             for(SBIconListView *listView in rootFolderView.iconListViews) {
                 [listView layoutIconsNow];
@@ -479,6 +518,29 @@
     } else {
         applyLayout();
         updateVisibleIcons(YES);
+    }
+}
+
+// Icon views only consult the label setting when they are added to a list, so
+// nudge the existing ones when the dock label switch is toggled
+- (void)_refreshIconView:(SBIconView *)iconView {
+    if(!iconView) return;
+    [iconView setAllowsLabelArea:iconView.allowsLabelArea];
+    [iconView _atriaApplyDockLabelOffset];
+}
+
+- (void)_refreshIconViewsInListView:(SBIconListView *)listView {
+    static Class iconViewClass;
+    static dispatch_once_t token;
+    dispatch_once(&token, ^{
+        iconViewClass = objc_getClass("SBIconView");
+    });
+
+    // -icons hands back the model's icons rather than the views showing them,
+    // so walk the hierarchy instead of messaging whatever that array holds
+    for(UIView *subview in listView.subviews) {
+        if(![subview isKindOfClass:iconViewClass]) continue;
+        [self _refreshIconView:(SBIconView *)subview];
     }
 }
 
@@ -500,6 +562,7 @@
 }
 
 - (void)onSpringboardLaunched {
+
     // If floating dock is enabled, default to 6 dock columns. See explanation in init method for why this is done here.
     if([self boolValueForKey:@"forceFloatingDock"] || [[self class] isUsingFloatingDock]) {
         [self _registerOption:@"dock_columns"
@@ -541,12 +604,41 @@
 
 - (NSString *)prefixForListView:(SBIconListView *)target {
     if(!target || !IconListIsRoot(target)) return @"";
-    return [NSString stringWithFormat:@"Page%d_", (int)[self indexOfListView:target]];
+    return [self _prefixForIndex:[self indexOfListView:target]];
+}
+
+// Both of these are pure functions of their inputs, and the layout path asks
+// for them once per icon per pass, so build each string only once. The index
+// itself is still looked up every time, since page order can change.
+
+- (NSString *)_prefixForIndex:(NSUInteger)index {
+    NSNumber *boxed = @(index);
+    NSString *prefix = _prefixCache[boxed];
+    if(!prefix) {
+        prefix = [NSString stringWithFormat:@"Page%d_", (int)index];
+        _prefixCache[boxed] = prefix;
+    }
+    return prefix;
+}
+
+- (NSString *)_pageKeyForPrefix:(NSString *)prefix key:(NSString *)key {
+    NSMutableDictionary<NSString *, NSString *> *keys = _pageKeyCache[prefix];
+    if(!keys) {
+        keys = [NSMutableDictionary new];
+        _pageKeyCache[prefix] = keys;
+    }
+
+    NSString *pageKey = keys[key];
+    if(!pageKey) {
+        pageKey = [prefix stringByAppendingString:key];
+        keys[key] = pageKey;
+    }
+    return pageKey;
 }
 
 // Obtain information about available settings
 
-- (NSMutableOrderedSet<NSString *> *)editorSettingsKeys {
+- (NSOrderedSet<NSString *> *)editorSettingsKeys {
     return _orderedSettingKeys;
 }
 
@@ -557,25 +649,80 @@
 // Get/set preference values
 
 - (int)intValueForKey:(NSString *)key {
-    return [_preferences objectForKey:key]
-               ? [[_preferences objectForKey:key] integerValue]
-               : [[_optionsRegistry objectForKey:key].defaultValue integerValue];
+    return (int)[[self rawValueForKey:key] integerValue];
 }
 
+// -[SBIconBadgeView alpha] and the label and shadow hooks ask for these on
+// every render pass, and a defaults lookup is far dearer than a dictionary hit
 - (BOOL)boolValueForKey:(NSString *)key {
-    return [_preferences objectForKey:key]
-               ? [[_preferences objectForKey:key] boolValue]
-               : [[_optionsRegistry objectForKey:key].defaultValue boolValue];
+    NSNumber *cached = _boolCache[key];
+    if(cached) return [cached boolValue];
+
+    BOOL value = [[self rawValueForKey:key] boolValue];
+    _boolCache[key] = @(value);
+    return value;
 }
 
 - (float)floatValueForKey:(NSString *)key {
-    return [_preferences objectForKey:key]
-               ? [[_preferences objectForKey:key] floatValue]
-               : [[_optionsRegistry objectForKey:key].defaultValue floatValue];
+    return [[self rawValueForKey:key] floatValue];
 }
 
 - (id)rawValueForKey:(NSString *)key {
     return [_preferences objectForKey:key] ?: [_optionsRegistry objectForKey:key].defaultValue;
+}
+
+// Anything derived from preferences is rebuilt against this, so a write can
+// never leave a cached answer behind whatever path made it
+- (void)_didWritePreferences {
+    _preferenceGeneration++;
+}
+
+// The layout path asks this for every icon, so it has to be cheap. Sticky on
+// purpose: were it allowed back to NO, setting an offset to zero would return
+// early and leave the last offset stuck on the label instead of clearing it.
+- (void)_ensureLabelOffsetState {
+    if(_labelOffsetStateValid && _labelOffsetGeneration == _preferenceGeneration) return;
+    _labelOffsetGeneration = _preferenceGeneration;
+    _labelOffsetStateValid = YES;
+
+    _usesDockLabelOffset |= [self floatValueForKey:@"dock_label_offset"] != 0;
+    _usesHsLabelOffset |= [self floatValueForKey:@"hs_label_offset"] != 0;
+    if(_usesHsLabelOffset || !_hasPerPageLayouts) return;
+
+    // A page may set one while the global value is still zero
+    NSDictionary *preferences = [_preferences persistentDomainForName:ARIPreferenceDomain];
+    for(NSString *key in preferences) {
+        if(![key hasSuffix:@"hs_label_offset"]) continue;
+        if([preferences[key] floatValue] == 0) continue;
+        _usesHsLabelOffset = YES;
+        return;
+    }
+}
+
+- (BOOL)usesLabelOffset {
+    [self _ensureLabelOffsetState];
+    return _usesDockLabelOffset || _usesHsLabelOffset;
+}
+
+- (BOOL)usesDockLabelOffset {
+    [self _ensureLabelOffsetState];
+    return _usesDockLabelOffset;
+}
+
+- (BOOL)usesHsLabelOffset {
+    [self _ensureLabelOffsetState];
+    return _usesHsLabelOffset;
+}
+
+// Callers pass these straight to NSString methods. A stored value of the wrong
+// type would be an unrecognised selector inside SpringBoard, so fall back to
+// the default instead of trusting whatever is on disk.
+- (NSString *)stringValueForKey:(NSString *)key {
+    id value = [_preferences objectForKey:key];
+    if([value isKindOfClass:[NSString class]]) return value;
+
+    id fallback = [_optionsRegistry objectForKey:key].defaultValue;
+    return [fallback isKindOfClass:[NSString class]] ? fallback : nil;
 }
 
 - (void)setValue:(id)val forKey:(NSString *)key {
@@ -583,58 +730,107 @@
         // Matches default value, remove from preferences
         [self resetValueForKey:key];
     } else {
-        if(![val isEqual:[_preferences valueForKey:key]])
-            [_preferences setValue:val forKey:key];
+        if(![val isEqual:[_preferences objectForKey:key]])
+            [_preferences setObject:val forKey:key];
+        [_boolCache removeObjectForKey:key];
+        [self _didWritePreferences];
     }
+}
+
+// -setValue:forKey: compares against the stored value to avoid a needless
+// write. For the saved icon state that comparison walks every icon on every
+// page, which costs more than the write it is trying to avoid.
+- (void)setRawValue:(id)val forKey:(NSString *)key {
+    [_preferences setObject:val forKey:key];
+    [_boolCache removeObjectForKey:key];
+    [self _didWritePreferences];
 }
 
 - (void)resetValueForKey:(NSString *)key {
     [_preferences removeObjectForKey:key];
+    [_boolCache removeObjectForKey:key];
+    [self _didWritePreferences];
 }
 
 // Get/set preference values by icon list view
 // We try to locate value for the current list view, if it exists
 
+// These run for every icon on every layout pass, so avoid building the page
+// key at all unless the list view actually has a per-page prefix.
+
+- (id)_pageValueForKey:(NSString *)key forListView:(SBIconListView *)list {
+    // With no per-page layouts there are no Page%d_ keys to find, so skip the
+    // list view index lookup entirely. Read path only: -createCustomForListView:
+    // needs a real prefix before the page is registered.
+    if(!_hasPerPageLayouts) return nil;
+
+    NSString *prefix = [self prefixForListView:list];
+    if(![prefix length]) return nil;
+    return [_preferences objectForKey:[self _pageKeyForPrefix:prefix key:key]];
+}
+
 - (int)intValueForKey:(NSString *)key forListView:(SBIconListView *)list {
-    NSString *pageKey = [NSString stringWithFormat:@"%@%@", [self prefixForListView:list], key];
-    return [_preferences objectForKey:pageKey] ? [[_preferences objectForKey:pageKey] integerValue] : [self intValueForKey:key];
+    id value = [self _pageValueForKey:key forListView:list];
+    return value ? (int)[value integerValue] : [self intValueForKey:key];
+}
+
+// Row and column counts are typed freely in the editor. Anything below one
+// reaches UIKit either as a division by zero or, once the signed value is
+// assigned to NSUInteger, as a count near NSUIntegerMax. The value is saved to
+// preferences, so an unusable homescreen would survive the respring too.
+- (NSUInteger)gridValueForKey:(NSString *)key forListView:(SBIconListView *)list {
+    int value = [self intValueForKey:key forListView:list];
+    return value < 1 ? 1 : (NSUInteger)value;
 }
 
 - (BOOL)boolValueForKey:(NSString *)key forListView:(SBIconListView *)list {
-    NSString *pageKey = [NSString stringWithFormat:@"%@%@", [self prefixForListView:list], key];
-    return [_preferences objectForKey:pageKey] ? [[_preferences objectForKey:pageKey] boolValue] : [self boolValueForKey:key];
+    id value = [self _pageValueForKey:key forListView:list];
+    return value ? [value boolValue] : [self boolValueForKey:key];
 }
 
 - (id)rawValueForKey:(NSString *)key forListView:(SBIconListView *)list {
-    NSString *pageKey = [NSString stringWithFormat:@"%@%@", [self prefixForListView:list], key];
-    return [_preferences objectForKey:pageKey] ?: [self rawValueForKey:key];
+    return [self _pageValueForKey:key forListView:list] ?: [self rawValueForKey:key];
+}
+
+- (NSString *)stringValueForKey:(NSString *)key forListView:(SBIconListView *)list {
+    id value = [self _pageValueForKey:key forListView:list];
+    if([value isKindOfClass:[NSString class]]) return value;
+    return [self stringValueForKey:key];
 }
 
 - (float)floatValueForKey:(NSString *)key forListView:(SBIconListView *)list {
-    NSString *pageKey = [NSString stringWithFormat:@"%@%@", [self prefixForListView:list], key];
-    return [_preferences objectForKey:pageKey] ? [[_preferences objectForKey:pageKey] floatValue] : [self floatValueForKey:key];
+    id value = [self _pageValueForKey:key forListView:list];
+    return value ? [value floatValue] : [self floatValueForKey:key];
 }
 
 - (void)setValue:(id)val forKey:(NSString *)key forListView:(SBIconListView *)listView {
     if(!listView)
         [self setValue:val forKey:key];
     else
-        [self setValue:val forKey:[NSString stringWithFormat:@"%@%@", [self prefixForListView:listView], key]];
+        [self setValue:val forKey:[self _pageKeyForPrefix:[self prefixForListView:listView] key:key]];
 }
 
 - (void)resetValueForKey:(NSString *)key forListView:(SBIconListView *)listView {
     if(!listView)
         [self resetValueForKey:key];
     else
-        [self resetValueForKey:[NSString stringWithFormat:@"%@%@", [self prefixForListView:listView], key]];
+        [self resetValueForKey:[self _pageKeyForPrefix:[self prefixForListView:listView] key:key]];
 }
 
 // Per-page layout creation/deletion and management
 
+// Called on launch and whenever preferences change underneath us, so anything
+// derived from defaults and held in memory gets rebuilt here
+- (void)reloadPreferenceState {
+    _hasPerPageLayouts = [(NSArray *)[_preferences objectForKey:@"_perPageListViews"] count] > 0;
+    [_boolCache removeAllObjects];
+    [self _didWritePreferences];
+}
+
 - (void)deleteCustomForListView:(SBIconListView *)listView {
     // Delete any keys for that list view
     NSString *prefix = [self prefixForListView:listView];
-    NSDictionary *preferences = [_preferences dictionaryRepresentation];
+    NSDictionary *preferences = [_preferences persistentDomainForName:ARIPreferenceDomain];
     for(NSString *key in [preferences allKeys]) {
         if([key hasPrefix:prefix]) [self resetValueForKey:key];
     }
@@ -642,6 +838,7 @@
     NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:@"_perPageListViews"] mutableCopy] ?: [NSMutableArray new];
     [perPage removeObject:prefix];
     [self setValue:perPage forKey:@"_perPageListViews"];
+    [self reloadPreferenceState];
 
     [self updateLayoutForEditing:YES];
 }
@@ -653,11 +850,13 @@
     NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:@"_perPageListViews"] mutableCopy] ?: [NSMutableArray new];
     [perPage addObject:prefix];
     [self setValue:perPage forKey:@"_perPageListViews"];
+    [self reloadPreferenceState];
 
     for(NSString *key in _orderedSettingKeys) {
         [_preferences setObject:[self rawValueForKey:key]
                          forKey:[NSString stringWithFormat:@"%@%@", prefix, key]];
     }
+    [self _didWritePreferences];
     [self updateLayoutForEditing:YES];
 }
 
