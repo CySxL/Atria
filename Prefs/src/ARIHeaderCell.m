@@ -4,6 +4,7 @@
 //
 
 #import "ARIHeaderCell.h"
+#import "../../src/ARIPaths.h"
 
 @implementation ARIHeaderCell {
     UIImageView *_icon;
@@ -14,7 +15,7 @@
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
 
     if(self) {
-        _icon = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:@THEOS_PACKAGE_INSTALL_PREFIX "/Library/PreferenceBundles/AtriaPrefs.bundle/full.png"]];
+        _icon = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:ARIPrefsBundlePath(@"/full.png")]];
         [self addSubview:_icon];
         _icon.layer.masksToBounds = YES;
         _icon.layer.cornerCurve = kCACornerCurveContinuous;

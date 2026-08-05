@@ -215,6 +215,18 @@
 			<key>height</key>
 			<integer>70</integer>
 		</dict>
+		<dict>
+			<key>cellClass</key>
+			<string>ARITwitterCell</string>
+			<key>url</key>
+			<string>https://github.com/CySxL</string>
+			<key>displayName</key>
+			<string>CySxL</string>
+			<key>description</key>
+			<string>roothide/Label Offsets</string>
+			<key>height</key>
+			<integer>70</integer>
+		</dict>
 	</array>
 	<key>title</key>
 	<string>Atria</string>

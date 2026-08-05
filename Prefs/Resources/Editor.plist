@@ -21,6 +21,8 @@
 			<string>showTooltips</string>
 			<key>label</key>
 			<string>Show Tooltips</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
         <dict>
 			<key>cell</key>
@@ -47,6 +49,8 @@
 				<integer>0</integer>
 				<integer>1</integer>
 			</array>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
         <dict>
 			<key>cell</key>

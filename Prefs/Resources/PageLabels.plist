@@ -43,6 +43,38 @@
 			<key>PostNotification</key>
 			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSegmentCell</string>
+			<key>default</key>
+			<integer>0</integer>
+			<key>defaults</key>
+			<string>me.lau.AtriaPrefs</string>
+			<key>key</key>
+			<string>weatherRefreshInterval</string>
+			<key>validTitles</key>
+			<array>
+				<string>Off</string>
+				<string>30 min</string>
+				<string>1 hour</string>
+				<string>2 hours</string>
+			</array>
+			<key>validValues</key>
+			<array>
+				<integer>0</integer>
+				<integer>30</integer>
+				<integer>60</integer>
+				<integer>120</integer>
+			</array>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Weather refresh sets how often the temperature and location are fetched. Off fetches them once when SpringBoard starts. Every fetch uses location, so leave it off unless you want the temperature kept current.</string>
+		</dict>
         <dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
@@ -78,6 +110,26 @@
 			<string>Label Shadow</string>
 			<key>PostNotification</key>
 			<string>me.lau.Atria/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>me.lau.AtriaPrefs</string>
+			<key>key</key>
+			<string>lockPageLabels</string>
+			<key>label</key>
+			<string>Lock Label Text</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Lock Label Text stops tapping a label from opening the keyboard, so the text cannot be changed by accident. Applies to the welcome message as well. Turn it off again to edit.</string>
 		</dict>
 		<dict>
 			<key>cell</key>

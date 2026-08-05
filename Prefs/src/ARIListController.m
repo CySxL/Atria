@@ -4,6 +4,7 @@
 //
 
 #import "ARIListController.h"
+#import "../../src/ARIPaths.h"
 
 @implementation ARIListController
 
@@ -69,7 +70,7 @@
         completion:^(BOOL finished) {
             // Respring
             NSTask *t = [[NSTask alloc] init];
-            [t setLaunchPath:@THEOS_PACKAGE_INSTALL_PREFIX "/usr/bin/killall"];
+            [t setLaunchPath:ARIRootPath(@"/usr/bin/killall")];
             [t setArguments:[NSArray arrayWithObjects:@"SpringBoard", nil]];
             [t launch];
 

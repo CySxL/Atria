@@ -4,12 +4,14 @@
 //
 
 #import "ARITwitterCell.h"
+#import "../../src/ARIPaths.h"
 
 @implementation ARITwitterCell {
     UIImageView *_icon;
     UILabel *_userLabel;
     NSString *_username;
     NSString *_displayName;
+    NSString *_url;
 }
 
 - (id)initWithStyle:(UITableViewCellStyle)style
@@ -35,6 +37,8 @@
 
         _username = specifier.properties[@"username"];
         _displayName = specifier.properties[@"displayName"];
+        // Not everyone credited here is on Twitter
+        _url = specifier.properties[@"url"];
 
         _userLabel = [[UILabel alloc] init];
         _userLabel.text = [NSString stringWithFormat:@"%@ - %@", _displayName, specifier.properties[@"description"]];
@@ -59,19 +63,18 @@
 - (void)refreshCellContentsWithSpecifier:(PSSpecifier *)specifier {
     [super refreshCellContentsWithSpecifier:specifier];
     [self.specifier setTarget:self];
-    [self.specifier setButtonAction:@selector(openTwitter)];
+    [self.specifier setButtonAction:@selector(openProfile)];
 }
 
 - (void)loadImage {
-    NSString *path = [NSString stringWithFormat:@THEOS_PACKAGE_INSTALL_PREFIX "/Library/PreferenceBundles/AtriaPrefs.bundle/ProfilePictures/%@.jpg", _displayName];
+    NSString *path = ARIPrefsBundlePath([NSString stringWithFormat:@"/ProfilePictures/%@.jpg", _displayName]);
     _icon.image = [UIImage imageWithContentsOfFile:path] ?: [UIImage systemImageNamed:@"person.circle"];
 }
 
-- (void)openTwitter {
-    if(!_username) return;
-    UIApplication *application = [UIApplication sharedApplication];
-    NSString *url = [@"https://twitter.com/" stringByAppendingString:_username];
-    [application openURL:[NSURL URLWithString:url] options:@{} completionHandler:nil];
+- (void)openProfile {
+    NSString *url = _url ?: (_username ? [@"https://twitter.com/" stringByAppendingString:_username] : nil);
+    if(!url) return;
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url] options:@{} completionHandler:nil];
 }
 
 @end

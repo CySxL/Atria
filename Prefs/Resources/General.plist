@@ -37,6 +37,8 @@
 			<string>disableDock</string>
 			<key>label</key>
 			<string>Disable Dock</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -71,6 +73,8 @@
 			<string>disableTodayGesture</string>
 			<key>label</key>
 			<string>Disable Today View</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -83,6 +87,8 @@
 			<string>disableAppLibraryGesture</string>
 			<key>label</key>
 			<string>Disable App Library</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -103,6 +109,8 @@
 			<string>forceFloatingDock</string>
 			<key>label</key>
 			<string>Force Floating Dock</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -115,6 +123,8 @@
 			<string>disableFloatingDockGestures</string>
 			<key>label</key>
 			<string>Disable Dock Gestures</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -127,6 +137,8 @@
 			<string>floatingDockAppLibrary</string>
 			<key>label</key>
 			<string>Show App Library</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -139,6 +151,8 @@
 			<string>floatingDockRecents</string>
 			<key>label</key>
 			<string>Show Recents</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
 		<dict>
 			<key>cell</key>
@@ -161,6 +175,8 @@
 				<integer>2</integer>
 				<integer>3</integer>
 			</array>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
         <dict>
 			<key>cell</key>
@@ -259,6 +275,20 @@
 			<string>hideLabelsFolders</string>
 			<key>label</key>
 			<string>Hide In Folders</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>me.lau.AtriaPrefs</string>
+			<key>key</key>
+			<string>showDockLabels</string>
+			<key>label</key>
+			<string>Show in Dock</string>
 			<key>PostNotification</key>
 			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>

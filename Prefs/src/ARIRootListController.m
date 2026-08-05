@@ -30,8 +30,9 @@
         actionWithTitle:@"Yes"
                   style:UIAlertActionStyleDestructive
                 handler:^(UIAlertAction *action) {
-                    NSUserDefaults *prefs = [[NSUserDefaults standardUserDefaults] init];
+                    NSUserDefaults *prefs = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
                     [prefs removePersistentDomainForName:ARIPreferenceDomain];
+                    [prefs synchronize];
                     [self respringWithAnimation];
                 }];
 
@@ -66,25 +67,19 @@
 }
 
 - (void)exportSettingsString {
-    // Sync defaults
+    // Read the domain directly rather than the backing plist, so this works
+    // regardless of where the jailbreak puts it
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
     [defaults synchronize];
-
-    // Load preferences plist
-    NSError *error;
-    NSURL *url = [NSURL fileURLWithPath:@THEOS_PACKAGE_INSTALL_PREFIX "/var/mobile/Library/Preferences/me.lau.AtriaPrefs.plist"];
-    NSMutableDictionary *dict = [[NSDictionary dictionaryWithContentsOfURL:url error:&error] mutableCopy]
+    NSMutableDictionary *dict = [[defaults persistentDomainForName:ARIPreferenceDomain] mutableCopy]
                                     ?: [NSMutableDictionary new];
-    if(error) {
-        [self displayAlert:@"Failed to export" message:[NSString stringWithFormat:@"Error: %@", error.localizedDescription]];
-        return;
-    }
 
     // The underscore prefix means it's an internal setting, not meant to be shared
     for(NSString *key in [dict allKeys])
         if([key hasPrefix:@"_"]) [dict removeObjectForKey:key];
 
     // Easier to make it json imho
+    NSError *error;
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dict
                                                        options:0
                                                          error:&error];
@@ -111,10 +106,30 @@
     }
 
     NSError *error;
-    NSDictionary *settingsDictionary = [NSJSONSerialization JSONObjectWithData:decodeData options:kNilOptions error:&error];
+    id decoded = [NSJSONSerialization JSONObjectWithData:decodeData options:kNilOptions error:&error];
 
-    if(!settingsDictionary) {
+    if(![decoded isKindOfClass:[NSDictionary class]]) {
         [self displayAlert:@"Failed to import" message:[NSString stringWithFormat:@"Perhaps the settings string in your clipboard is invalid?\n\nError: %@", error.localizedDescription]];
+        return;
+    }
+    NSDictionary *settingsDictionary = decoded;
+
+    // SpringBoard reads these keys as numbers and strings without checking. A
+    // settings string is something users paste from strangers, so anything of
+    // an unexpected type here would be a respring loop on their device.
+    NSMutableDictionary *accepted = [NSMutableDictionary new];
+    for(NSString *key in settingsDictionary) {
+        if(![key isKindOfClass:[NSString class]]) continue;
+        // The underscore prefix means it's an internal setting, not meant to be shared
+        if([key hasPrefix:@"_"]) continue;
+
+        id value = settingsDictionary[key];
+        if(![value isKindOfClass:[NSString class]] && ![value isKindOfClass:[NSNumber class]]) continue;
+        accepted[key] = value;
+    }
+
+    if([accepted count] == 0) {
+        [self displayAlert:@"Failed to import" message:@"No usable settings were found in that string."];
         return;
     }
 
@@ -126,16 +141,19 @@
     // Set ARIDidSplashPreferenceKey, since they are in preferences already
     [defaults setObject:@(YES) forKey:ARIDidSplashPreferenceKey];
 
-    for(NSString *key in [settingsDictionary allKeys]) {
-        // The underscore prefix means it's an internal setting, not meant to be shared
-        if([key hasPrefix:@"_"]) continue;
-        [defaults setObject:settingsDictionary[key] forKey:key];
+    for(NSString *key in accepted) {
+        [defaults setObject:accepted[key] forKey:key];
     }
     [defaults synchronize];
 
+    NSUInteger skipped = [settingsDictionary count] - [accepted count];
+    NSString *message = skipped > 0
+                            ? [NSString stringWithFormat:@"Settings imported. You may now respring to apply completely.\n\n%lu imported, %lu skipped.", (unsigned long)[accepted count], (unsigned long)skipped]
+                            : [NSString stringWithFormat:@"Settings imported. You may now respring to apply completely.\n\n%lu imported.", (unsigned long)[accepted count]];
+
     UIAlertController *alert = [UIAlertController
         alertControllerWithTitle:@"Success"
-                         message:[NSString stringWithFormat:@"Settings imported. You may now respring to apply completely.\n\nSettings imported: %@", settingsDictionary]
+                         message:message
                   preferredStyle:UIAlertControllerStyleAlert];
 
     UIAlertAction *defaultAction = [UIAlertAction
