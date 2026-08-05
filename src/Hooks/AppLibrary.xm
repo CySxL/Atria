@@ -14,6 +14,8 @@ static id fixedLayoutForAppLibrary = nil;
 
 // Option to disable AppLibrary
 - (BOOL)isAppLibrarySupported {
+	// Deliberately frozen for the lifetime of SpringBoard: this answer decides
+	// how the icon model is built, and changing it underneath is not safe
 	static const BOOL enabled = [[ARITweakManager sharedInstance] boolValueForKey:@"enableAppLibrary"];
 	return enabled;
 }
@@ -22,13 +24,16 @@ static id fixedLayoutForAppLibrary = nil;
 
 %hook SBRootFolderControllerConfiguration
 
+// These two only gate a gesture, so read them live rather than freezing them at
+// first call and making the switches need a respring
+
 - (UIInterfaceOrientationMask)ignoresOverscrollOnFirstPageOrientations {
-	static const BOOL disableTodayGesture = [[ARITweakManager sharedInstance] boolValueForKey:@"disableTodayGesture"];
-	return disableTodayGesture ? 0 : %orig;
+	return [[ARITweakManager sharedInstance] boolValueForKey:@"disableTodayGesture"] ? 0 : %orig;
 }
 
 - (UIInterfaceOrientationMask)ignoresOverscrollOnLastPageOrientations {
-	static const BOOL disableGesture = ![[ARITweakManager sharedInstance] boolValueForKey:@"enableAppLibrary"] || [[ARITweakManager sharedInstance] boolValueForKey:@"disableAppLibraryGesture"];
+	ARITweakManager *manager = [ARITweakManager sharedInstance];
+	BOOL disableGesture = ![manager boolValueForKey:@"enableAppLibrary"] || [manager boolValueForKey:@"disableAppLibraryGesture"];
 	return disableGesture ? 0 : UIInterfaceOrientationMaskAll;
 }
 
@@ -64,7 +69,7 @@ static id fixedLayoutForAppLibrary = nil;
 %ctor {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
 	if([manager isEnabled]) {
-		NSLog(@"[Atria]: Loading hooks from %s", __FILE__);
+		ARILog(@"Loading hooks from %s", __FILE__);
 		%init();
 
 		if([manager boolValueForKey:@"layoutEnabled"]) {

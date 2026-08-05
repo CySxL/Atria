@@ -9,6 +9,20 @@
 
 #include <objc/runtime.h>
 
+@interface SBIconLegibilityLabelView : UIView
+@property (nonatomic, assign) CGRect _atriaNaturalFrame;
+@end
+
+// Base class of every label accessory: the dot other tweaks drive through
+// -currentLabelAccessoryType, plus the system's own badges
+@interface SBIconLabelAccessoryView : UIView
+@property (nonatomic, assign) CGRect _atriaNaturalFrame;
+@end
+
+@interface UIView (ARILabelOffset)
+- (void)_atriaReapplyLabelOffset;
+@end
+
 @interface SBSApplicationShortcutIcon : NSObject
 @end
 
@@ -21,14 +35,97 @@
 @end
 
 @interface SBSApplicationShortcutCustomImageIcon : SBSApplicationShortcutIcon
-@property (nonatomic, readwrite) BOOL isTemplate;   
+@property (nonatomic, readwrite) BOOL isTemplate;
 - (id)initWithImagePNGData:(id)arg1;
 - (BOOL)isTemplate;
 @end
 
+// %property has no weak attribute, and an icon view must not keep its own
+// list view alive, so hold the back reference in a zeroing box
+@interface ARIWeakRef : NSObject
+@property (nonatomic, weak) id object;
+@end
+
+@implementation ARIWeakRef
+@end
+
+@interface SBIconView (ARIListViewRef)
+@property (nonatomic, strong) ARIWeakRef *_atriaListViewRef;
+// Geometry the current shadow path was built from
+@property (nonatomic, assign) CGRect _atriaShadowRect;
+@property (nonatomic, assign) CGFloat _atriaShadowScale;
+@end
+
+// objc_getClass locks and hashes the runtime class table. These are asked for
+// once per icon on the layout path, so resolve each of them a single time.
+#define ARI_CACHED_CLASS(fn, name)                        \
+	static Class fn(void) {                               \
+		static Class cls;                                 \
+		static dispatch_once_t token;                     \
+		dispatch_once(&token, ^{                          \
+			cls = objc_getClass(name);                    \
+		});                                               \
+		return cls;                                       \
+	}
+
+// The label and the accessory both sit a couple of levels below the icon view,
+// and both answer this, so one walk covers them
+static void ARIReapplyOffsets(UIView *view, NSInteger depth) {
+	if(!view || depth > 3) return;
+	for(UIView *subview in view.subviews) {
+		if([subview respondsToSelector:@selector(_atriaReapplyLabelOffset)])
+			[subview _atriaReapplyLabelOffset];
+		else
+			ARIReapplyOffsets(subview, depth + 1);
+	}
+}
+
+ARI_CACHED_CLASS(ARIWidgetIconClass, "SBWidgetIcon")
+ARI_CACHED_CLASS(ARIBookmarkIconClass, "SBBookmarkIcon")
+ARI_CACHED_CLASS(ARIIconListViewClass, "SBIconListView")
+ARI_CACHED_CLASS(ARIIconViewClass, "SBIconView")
+ARI_CACHED_CLASS(ARIIconControllerClass, "SBIconController")
+
+// Walks up to the icon view the label belongs to and picks the right setting
+static CGFloat ARILabelOffsetForLabel(UIView *label) {
+	ARITweakManager *manager = [ARITweakManager sharedInstance];
+	if(!manager.usesLabelOffset) return 0;
+
+	UIView *view = label.superview;
+	for(NSInteger depth = 0; depth < 3 && view; depth++, view = view.superview) {
+		if(![view isKindOfClass:ARIIconViewClass()]) continue;
+
+		SBIconView *iconView = (SBIconView *)view;
+		if(IconIsInAnyDock(iconView))
+			return manager.usesDockLabelOffset ? [manager floatValueForKey:@"dock_label_offset"] : 0;
+		if(IconIsInRoot(iconView))
+			return manager.usesHsLabelOffset
+				? [manager floatValueForKey:@"hs_label_offset" forListView:iconView._atriaLastIconListView]
+				: 0;
+		return 0;
+	}
+	return 0;
+}
+
 %hook SBIconView
-// I hope this doesn't cause issues
-%property (nonatomic, strong) SBIconListView *_atriaLastIconListView;
+%property (nonatomic, strong) ARIWeakRef *_atriaListViewRef;
+%property (nonatomic, assign) CGRect _atriaShadowRect;
+%property (nonatomic, assign) CGFloat _atriaShadowScale;
+
+%new
+- (SBIconListView *)_atriaLastIconListView {
+	return self._atriaListViewRef.object;
+}
+
+%new
+- (void)set_atriaLastIconListView:(SBIconListView *)listView {
+	ARIWeakRef *ref = self._atriaListViewRef;
+	if(!ref) {
+		ref = [ARIWeakRef new];
+		self._atriaListViewRef = ref;
+	}
+	ref.object = listView;
+}
 
 - (CGFloat)iconContentScale {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
@@ -58,6 +155,10 @@
 		if([manager boolValueForKey:@"hideLabelsAppLibrary"]) allows = NO;
 	} else if(IconIsInFolder(self)) {
 		if([manager boolValueForKey:@"hideLabelsFolders"]) allows = NO;
+	} else if(IconIsInAnyDock(self)) {
+		// The dock never labels icons on its own, so drive it both ways to keep
+		// the switch reversible without a respring
+		allows = [manager boolValueForKey:@"showDockLabels"];
 	}
 	%orig(allows);
 }
@@ -78,15 +179,14 @@
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
 	CATransform3D old = self.layer.sublayerTransform;
 
-	// Use containsString because we need to check for the suggestions location too
-	BOOL inDock = IconIsInDock(self) || [self.location containsString:@"Floating"];
+	BOOL inDock = IconIsInAnyDock(self);
 	if(!(inDock || IconIsInRoot(self) || (IconIsInFolder(self) && [manager boolValueForKey:@"scaleInsideFolders"]))) {
 		if(old.m11 != 1 || old.m22 != 1) self.layer.sublayerTransform = CATransform3DMakeScale(1, 1, 1);
 		return;
 	}
 
 	CGFloat customScale = 1;
-	BOOL isWidget = [self.icon isKindOfClass:objc_getClass("SBWidgetIcon")];
+	BOOL isWidget = [self.icon isKindOfClass:ARIWidgetIconClass()];
 	if(isWidget) {
 		customScale = [manager floatValueForKey:@"hs_widgetIconScale" forListView:self._atriaLastIconListView];
 	} else {
@@ -135,12 +235,12 @@
 
 - (void)didMoveToSuperview {
 	%orig;
-	if(self.superview && [self.superview isKindOfClass:objc_getClass("SBIconListView")]) {
+	if(self.superview && [self.superview isKindOfClass:ARIIconListViewClass()]) {
 		self._atriaLastIconListView = (SBIconListView *)self.superview;
 		// Update allowsLabelArea
 		[self setAllowsLabelArea:self.allowsLabelArea];
 	}
-	[self _atriaSetupDropShadow:[[[objc_getClass("SBIconController") sharedInstance] iconManager] isEditing]];
+	[self _atriaSetupDropShadow:[[[ARIIconControllerClass() sharedInstance] iconManager] isEditing]];
 	[self _updateIconImageViewAnimated:YES];
 }
 
@@ -151,22 +251,28 @@
 
 %new
 - (void)_atriaGenerateDropShadow:(CGRect)rect {
-	if(self.layer.shadowRadius > 0.0F) {
-		CGFloat width = rect.size.width;
-		CGFloat height = rect.size.height;
-		float scale = self.layer.sublayerTransform.m11;
-		CGRect scaledRect = CGRectInset(rect, 
-			(width - sqrt(width * width * scale)) / 2.0F, 
-			(height - sqrt(height * height * scale)) / 2.0F);
-		self.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:scaledRect cornerRadius:[self iconImageCornerRadius]].CGPath;
-	}
+	if(self.layer.shadowRadius <= 0.0F) return;
+
+	// -setBounds: fires constantly during layout and animation, and each path
+	// costs an allocation, so only rebuild when the geometry actually moved
+	float scale = self.layer.sublayerTransform.m11;
+	if(scale == self._atriaShadowScale && CGRectEqualToRect(rect, self._atriaShadowRect)) return;
+	self._atriaShadowRect = rect;
+	self._atriaShadowScale = scale;
+
+	CGFloat width = rect.size.width;
+	CGFloat height = rect.size.height;
+	CGRect scaledRect = CGRectInset(rect,
+		(width - sqrt(width * width * scale)) / 2.0F,
+		(height - sqrt(height * height * scale)) / 2.0F);
+	self.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:scaledRect cornerRadius:[self iconImageCornerRadius]].CGPath;
 }
 
 %new
 - (void)_atriaSetupDropShadow:(BOOL)isEditing {
 	BOOL enabled = [[ARITweakManager sharedInstance] boolValueForKey:@"dropShadow"];
 	SBIcon *icon = [self icon];
-	BOOL widgetOrAppIcon = [icon application] || [icon isKindOfClass:objc_getClass("SBWidgetIcon")] || [icon isKindOfClass:objc_getClass("SBBookmarkIcon")];
+	BOOL widgetOrAppIcon = [icon application] || [icon isKindOfClass:ARIWidgetIconClass()] || [icon isKindOfClass:ARIBookmarkIconClass()];
 	// Don't apply shadows in floating dock, because dynamic scaling of the app icons gets weird
 	// Use containsString instead of the macro because we need to check for the suggestions location too
 	if(enabled && !isEditing && widgetOrAppIcon && ![self.location containsString:@"Floating"]) {
@@ -175,7 +281,8 @@
 		self.layer.shadowOpacity = 0.4F;
 		self.layer.shadowRadius = 5.0F;
 		self.layer.shadowColor = [UIColor blackColor].CGColor;
-		self.layer.drawsAsynchronously = YES;
+		// Shadow was off until now, so no cached path can be reused
+		self._atriaShadowRect = CGRectNull;
 		[self _atriaGenerateDropShadow:self.bounds];
 	} else {
 		self.layer.shadowOpacity = 0.0F;
@@ -186,6 +293,13 @@
 - (void)setBounds:(CGRect)arg1 {
 	%orig(arg1);
 	[self _atriaGenerateDropShadow:arg1];
+}
+
+// Re-runs the offset against the frame layout last asked for, so the editor can
+// move things without waiting for SpringBoard to lay the icon out again
+%new
+- (void)_atriaApplyDockLabelOffset {
+	ARIReapplyOffsets(self, 0);
 }
 
 %new
@@ -286,9 +400,57 @@
 
 %end
 
+// Launching or backgrounding an app makes SpringBoard rebuild the label area,
+// which replaces this view and drops the offset set on the one before it
+// A transform leaves the frame undefined, and SpringBoard writes a frame here
+// on every relayout, so the two fought and the label drifted. Shift the frame
+// layout asks for instead, which stays correct however often it is recomputed.
+%group LabelOffset
+%hook SBIconLegibilityLabelView
+%property (nonatomic, assign) CGRect _atriaNaturalFrame;
+
+- (void)setFrame:(CGRect)frame {
+	self._atriaNaturalFrame = frame;
+
+	CGFloat offset = ARILabelOffsetForLabel(self);
+	if(offset != 0) frame.origin.y -= offset;
+	%orig(frame);
+}
+
+%new
+- (void)_atriaReapplyLabelOffset {
+	// Always from the unshifted frame, so this never stacks on itself
+	if(!CGRectIsEmpty(self._atriaNaturalFrame)) [self setFrame:self._atriaNaturalFrame];
+}
+
+%end
+
+// Accessories are laid out beside the label but positioned independently, so
+// they need the same shift or they part company with the text they belong to
+%hook SBIconLabelAccessoryView
+%property (nonatomic, assign) CGRect _atriaNaturalFrame;
+
+- (void)setFrame:(CGRect)frame {
+	self._atriaNaturalFrame = frame;
+
+	CGFloat offset = ARILabelOffsetForLabel(self);
+	if(offset != 0) frame.origin.y -= offset;
+	%orig(frame);
+}
+
+%new
+- (void)_atriaReapplyLabelOffset {
+	if(!CGRectIsEmpty(self._atriaNaturalFrame)) [self setFrame:self._atriaNaturalFrame];
+}
+
+%end
+%end
+
 %ctor {
 	if([[ARITweakManager sharedInstance] isEnabled]) {
-		NSLog(@"[Atria]: Loading hooks from %s", __FILE__);
+		ARILog(@"Loading hooks from %s", __FILE__);
 		%init();
+
+		if(objc_getClass("SBIconLabelAccessoryView")) %init(LabelOffset);
 	}
 }

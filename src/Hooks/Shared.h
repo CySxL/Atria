@@ -6,6 +6,12 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
+#ifdef DEBUG
+#define ARILog(fmt, ...) NSLog(@"[Atria]: " fmt, ##__VA_ARGS__)
+#else
+#define ARILog(fmt, ...)
+#endif
+
 // AppLibrary = SBIconLocationAppLibrary
 // Root = SBIconLocationRoot OR SBIconLocationRootWithWidgets
 // Dock = SBIconLocationDock OR SBIconLocationFloatingDock
@@ -27,8 +33,14 @@
 #define IconListIsAppLibraryPod(x) IsLocationAppLibraryPod(x.iconLocation)
 #define IconListIsFolder(x) IsLocationFolder(x.iconLocation)
 
+#define IsLocationFloatingDockSuggestions(x) [x isEqualToString:@"SBIconLocationFloatingDockSuggestions"]
+
+// AnyDock also covers the floating dock suggestions, which is where recents live
+#define IsLocationAnyDock(x) (IsLocationDock(x) || [x containsString:@"Floating"])
+
 #define IconIsInRoot(x) IsLocationRoot(x.location)
 #define IconIsInDock(x) IsLocationDock(x.location)
+#define IconIsInAnyDock(x) IsLocationAnyDock(x.location)
 #define IconIsInFloatingDock(x) IsLocationFloatingDock(x.location)
 #define IconIsInAppLibrary(x) IsLocationAppLibrary(x.location)
 #define IconIsInAppLibraryPod(x) IsLocationAppLibraryPod(x.location)

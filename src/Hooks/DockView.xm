@@ -161,7 +161,7 @@ static SBFloatingDockController *fdController;
 
 %ctor {
 	if([[ARITweakManager sharedInstance] isEnabled]) {
-		NSLog(@"[Atria]: Loading hooks from %s", __FILE__);
+		ARILog(@"Loading hooks from %s", __FILE__);
 		%init();
 	}
 }

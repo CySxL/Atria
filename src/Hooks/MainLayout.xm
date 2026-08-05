@@ -36,7 +36,9 @@ static BOOL didLaunchSB = NO;
 	SBIconListModel *model = [self model];
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
  	if(!model._atriaLocation) model._atriaLocation = self.iconLocation;
- 	[manager.listViewModelMap setObject:self forKey:model];
+ 	// -layout runs constantly, so don't rewrite an entry that is already correct
+ 	if([manager.listViewModelMap objectForKey:model] != self)
+ 		[manager.listViewModelMap setObject:self forKey:model];
 
 	if(self._originalLayout != orig || self._atriaNeedsLayout) {
 		self._originalLayout = orig;
@@ -88,8 +90,8 @@ static BOOL didLaunchSB = NO;
 		// Per-page layout requires copying this object
 		SBIconListGridLayoutConfiguration *config = [orig.layoutConfiguration copy];
 
-		NSUInteger cols = [manager intValueForKey:@"hs_columns" forListView:self];
-		NSUInteger rows = [manager intValueForKey:@"hs_rows" forListView:self];
+		NSUInteger cols = [manager gridValueForKey:@"hs_columns" forListView:self];
+		NSUInteger rows = [manager gridValueForKey:@"hs_rows" forListView:self];
 
 		// Set number of columns/rows, inverting for landscape
 		[config setNumberOfPortraitColumns:cols];
@@ -197,8 +199,8 @@ static BOOL didLaunchSB = NO;
 	} else if(IconListIsDock(self)) {
 		SBIconListGridLayoutConfiguration *config = orig.layoutConfiguration;
 
-		NSUInteger cols = [manager intValueForKey:@"dock_columns"];
-		NSUInteger rows = [manager intValueForKey:@"dock_rows"];
+		NSUInteger cols = [manager gridValueForKey:@"dock_columns" forListView:nil];
+		NSUInteger rows = [manager gridValueForKey:@"dock_rows" forListView:nil];
 
 		// Disable dock
 		if([manager boolValueForKey:@"disableDock"]) cols = rows = 0;
@@ -275,8 +277,8 @@ static BOOL didLaunchSB = NO;
 	// We override the original class for root, unless we are the subclass
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
 	if(IsLocationRoot(location) && ![self isMemberOfClass:objc_getClass("ARIAppLibraryIconListLayoutProvider")]) {
-		NSUInteger cols = [manager intValueForKey:@"hs_columns"];
-		NSUInteger rows = [manager intValueForKey:@"hs_rows"];
+		NSUInteger cols = [manager gridValueForKey:@"hs_columns" forListView:nil];
+		NSUInteger rows = [manager gridValueForKey:@"hs_rows" forListView:nil];
 
 		// By setting the cols and rows to 0x7F (127) after SpringBoard launches, it fixes a bug 
 		// where icons would disappear before they scroll visually offscreen on iOS 14.
@@ -288,12 +290,20 @@ static BOOL didLaunchSB = NO;
 		[orig.layoutConfiguration setNumberOfLandscapeRows:cols];
 	} else if(IsLocationDock(location)) {
 		// Fix dock layout. This is needed, do not remove!
-		NSUInteger cols = [manager intValueForKey:@"dock_columns"];
-		NSUInteger rows = [manager intValueForKey:@"dock_rows"];
+		NSUInteger cols = [manager gridValueForKey:@"dock_columns" forListView:nil];
+		NSUInteger rows = [manager gridValueForKey:@"dock_rows" forListView:nil];
 		[orig.layoutConfiguration setNumberOfPortraitColumns:cols];
 		[orig.layoutConfiguration setNumberOfPortraitRows:rows];
 		[orig.layoutConfiguration setNumberOfLandscapeColumns:rows];
 		[orig.layoutConfiguration setNumberOfLandscapeRows:cols];
+	} else if(IsLocationFloatingDockSuggestions(location)) {
+		// Recents live in their own list, and the icon limit comes from this
+		// grid, so the model drops anything past it however high the setting is
+		NSUInteger recents = [manager gridValueForKey:@"maxFloatingDockRecents" forListView:nil];
+		[orig.layoutConfiguration setNumberOfPortraitColumns:recents];
+		[orig.layoutConfiguration setNumberOfPortraitRows:1];
+		[orig.layoutConfiguration setNumberOfLandscapeColumns:1];
+		[orig.layoutConfiguration setNumberOfLandscapeRows:recents];
 	}
 	return orig;
 }
@@ -301,13 +311,15 @@ static BOOL didLaunchSB = NO;
 %end
 
 static void preferencesChanged() {
-    [[ARITweakManager sharedInstance] updateLayoutForRoot:YES forDock:YES animated:YES];
+	// Settings may have been imported behind our back
+	[[ARITweakManager sharedInstance] reloadPreferenceState];
+	[[ARITweakManager sharedInstance] updateLayoutForRoot:YES forDock:YES animated:YES];
 }
 
 %ctor {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
 	if([manager isEnabled] && [manager boolValueForKey:@"layoutEnabled"]) {
-		NSLog(@"[Atria]: Loading hooks from %s", __FILE__);
+		ARILog(@"Loading hooks from %s", __FILE__);
 		%init();
 
 		CFNotificationCenterAddObserver(

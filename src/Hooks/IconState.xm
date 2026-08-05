@@ -16,12 +16,12 @@
     }
 
     id orig = %orig;
-    [manager setValue:orig forKey:@"_saveState"];
+    if(orig) [manager setRawValue:orig forKey:@"_saveState"];
     return orig;
 }
 
 - (BOOL)saveCurrentIconState:(id)state error:(NSError **)error {
-    [[ARITweakManager sharedInstance] setValue:state forKey:@"_saveState"];
+    if(state) [[ARITweakManager sharedInstance] setRawValue:state forKey:@"_saveState"];
     return %orig;
 }
 
@@ -32,7 +32,7 @@
     if([manager isEnabled]) {
         // A user might want to disable this if they have a tweak like Velox Reloaded 2 which also saves icon state
         if([manager boolValueForKey:@"saveIconState"]) {
-            NSLog(@"[Atria]: Loading hooks from %s", __FILE__);
+            ARILog(@"Loading hooks from %s", __FILE__);
 		    %init();
         } else {
             // Clear the existing saved icon state so that the user's layout doesn't revert when re-enabling the option

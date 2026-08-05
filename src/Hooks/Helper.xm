@@ -4,12 +4,14 @@
 //
 
 #import "Shared.h"
+#import "../ARIPaths.h"
 #import "../Manager/ARITweakManager.h"
 #import "../Manager/ARIEditManager.h"
 #import "../UI/Splash/ARISplashViewController.h"
 #import "../UI/Label/ARILabelView.h"
 
 #include <dlfcn.h>
+#include <objc/runtime.h>
 
 
 %hook SBIconController 
@@ -56,6 +58,9 @@
 %end
 
 
+// Only installed when a label can actually be edited, since swallowing this
+// call outright also breaks scroll-to-visible for everything else
+%group PageLabelScrollFix
 %hook SBIconScrollView
 
 - (void)scrollRectToVisible:(CGRect)rect animated:(BOOL)animated {
@@ -63,6 +68,7 @@
     // for homescreen page labels. Crossing my fingers this doesn't break anything.
 }
 
+%end
 %end
 
 
@@ -132,15 +138,19 @@
 %ctor {
     ARITweakManager *manager = [ARITweakManager sharedInstance];
 	if([manager isEnabled]) {
-		NSLog(@"[Atria]: Loading hooks from %s", __FILE__);
+		ARILog(@"Loading hooks from %s", __FILE__);
 		%init();
 
         if([manager isDeviceIPad]) {
             %init(TodayViewFixiPad);
         }
 
+        if([manager boolValueForKey:@"showWelcome"] || [manager boolValueForKey:@"showPageLabels"]) {
+            %init(PageLabelScrollFix);
+        }
+
         // Zenith compatibility
-        NSString *const zenithPath = @THEOS_PACKAGE_INSTALL_PREFIX "/Library/MobileSubstrate/DynamicLibraries/Zenith.dylib";
+        NSString *const zenithPath = ARIDylibPath(@"Zenith.dylib");
         if([[NSFileManager defaultManager] fileExistsAtPath:zenithPath]) {
             dlopen([zenithPath UTF8String], RTLD_NOW);
             %init(ZenithFix);

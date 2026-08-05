@@ -5,10 +5,21 @@
 
 #import "Shared.h"
 #import "../Manager/ARITweakManager.h"
+#import <objc/runtime.h>
 #import <substrate.h>
 
 // Small macro to round to nearest short assuming x is positive
-#define ROUND_SHORT(x) (short)(x + 0.5)
+#define ROUND_SHORT(x) (short)((x) + 0.5)
+
+// MSHookIvar dereferences NULL when the ivar is missing, so a renamed ivar on a
+// future release would write to address zero on every layout pass. Hand back a
+// pointer instead and let the caller skip the write.
+template <typename Type_>
+static inline Type_ *ARIIvarPointer(id object, const char *name) {
+	Ivar ivar = class_getInstanceVariable(object_getClass(object), name);
+	if(!ivar) return NULL;
+	return reinterpret_cast<Type_ *>(reinterpret_cast<char *>((__bridge void *)object) + ivar_getOffset(ivar));
+}
 
 // Function to calculate the widget grid sizes to be appropriate for the amount of columns and rows
 // Messy math
@@ -50,24 +61,39 @@ static struct SBHIconGridSizeClassSizes generateGridSizeClassSizes(double cols, 
 %new
 - (void)_atriaUpdateModelGridSizes {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
-	if([manager firmwareVersion] < 14 || !self._atriaLocation || !IsLocationRoot(self._atriaLocation)) return;
+	if([manager firmwareVersion] < 14 || !self._atriaLocation) return;
+
+	// Recents are capped by the model's own grid, not by the list view's layout
+	// configuration, so setting one without the other changes nothing
+	if(IsLocationFloatingDockSuggestions(self._atriaLocation)) {
+		struct SBHIconGridSize recentsSize = {
+			.width = (short)[manager gridValueForKey:@"maxFloatingDockRecents" forListView:nil],
+			.height = 1
+		};
+		if(struct SBHIconGridSize *slot = ARIIvarPointer<struct SBHIconGridSize>(self, "_gridSize"))
+			*slot = recentsSize;
+		return;
+	}
+
+	if(!IsLocationRoot(self._atriaLocation)) return;
 
 	struct SBHIconGridSize gridSize = [self gridSize];
 	// Get the number of columns and rows for the associated list view
 	// This allows different pages to have differently sized widgets!
-	NSUInteger cols = [manager intValueForKey:@"hs_columns" forListView:[self _atriaListView]];
-	NSUInteger rows = [manager intValueForKey:@"hs_rows" forListView:[self _atriaListView]];
+	NSUInteger cols = [manager gridValueForKey:@"hs_columns" forListView:[self _atriaListView]];
+	NSUInteger rows = [manager gridValueForKey:@"hs_rows" forListView:[self _atriaListView]];
 
 	// Update grid size
 	gridSize.height = rows;
 	gridSize.width = cols;
 	// setGridSize method only exists on iOS 15+, but the ivar exists on 14 too
-	MSHookIvar<struct SBHIconGridSize>(self, "_gridSize") = gridSize;
+	if(struct SBHIconGridSize *slot = ARIIvarPointer<struct SBHIconGridSize>(self, "_gridSize"))
+		*slot = gridSize;
 
 	// Update grid size class sizes
 	if([manager boolValueForKey:@"dynamicWidgetSizing"]) {
-		MSHookIvar<struct SBHIconGridSizeClassSizes>(self, "_gridSizeClassSizes") = 
-			generateGridSizeClassSizes(cols, rows, UIInterfaceOrientationIsLandscape([ARITweakManager currentDeviceOrientation]));
+		if(struct SBHIconGridSizeClassSizes *slot = ARIIvarPointer<struct SBHIconGridSizeClassSizes>(self, "_gridSizeClassSizes"))
+			*slot = generateGridSizeClassSizes(cols, rows, UIInterfaceOrientationIsLandscape([ARITweakManager currentDeviceOrientation]));
 	}
 }
 
@@ -175,7 +201,7 @@ static struct SBHIconGridSizeClassSizes generateGridSizeClassSizes(double cols, 
 		case 4:
 		return gridSizes.extraLarge;
 		default:
-		struct SBHIconGridSize defaultSize;
+		struct SBHIconGridSize defaultSize = {};
 		return defaultSize;
 	}
 }
@@ -187,7 +213,7 @@ static struct SBHIconGridSizeClassSizes generateGridSizeClassSizes(double cols, 
 %ctor {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
 	if([manager isEnabled] && [manager boolValueForKey:@"layoutEnabled"]) {
-		NSLog(@"[Atria]: Loading hooks from %s", __FILE__);
+		ARILog(@"Loading hooks from %s", __FILE__);
 
         %init();
 
