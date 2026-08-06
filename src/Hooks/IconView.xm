@@ -159,9 +159,9 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 		// The dock never labels icons on its own, so drive it both ways to keep
 		// the switch reversible without a respring
 		allows = [manager boolValueForKey:@"showDockLabels"];
-		// It reconfigures the dock in bursts and asks for no label every time,
-		// so answering again with what is already set has it rebuild for nothing
-		if(allows == self.allowsLabelArea) return;
+		// It reconfigures the dock in bursts and asks for no label every time.
+		// Answering each of those rebuilds the label repeatedly, which is what
+		// fades it in on unlock, so the repeats are left alone deliberately.
 	}
 	%orig(allows);
 }
