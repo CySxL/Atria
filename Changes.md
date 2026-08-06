@@ -183,3 +183,6 @@ Version 1.5.4:
 
 Version 1.5.5:
 - Dock labels are no longer rebuilt several times over on unlock
+
+Version 1.5.6:
+- Reverted 1.5.5. Rebuilding the dock label repeatedly is what fades it in on unlock, and skipping the repeats made it appear abruptly instead
