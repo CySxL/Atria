@@ -177,3 +177,6 @@ Version 1.5.2:
 
 Version 1.5.3:
 - Label accessories now move with the label they belong to, so an indicator no longer parts company with its text when an offset is set
+
+Version 1.5.4:
+- Adding an icon to a page no longer makes SpringBoard rebuild its image, which showed as a stutter on the first swipe after unlocking
