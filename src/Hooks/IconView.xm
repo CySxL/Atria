@@ -241,7 +241,10 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 		[self setAllowsLabelArea:self.allowsLabelArea];
 	}
 	[self _atriaSetupDropShadow:[[[ARIIconControllerClass() sharedInstance] iconManager] isEditing]];
-	[self _updateIconImageViewAnimated:YES];
+	// Only the scale is wanted here. Going through -_updateIconImageViewAnimated:
+	// to reach it made SpringBoard rerun a whole image update and set up an
+	// animation for every icon as it was added to a page.
+	[self _atriaUpdateIconContentScale];
 }
 
 - (void)setEditing:(BOOL)editing animated:(BOOL)animated {
