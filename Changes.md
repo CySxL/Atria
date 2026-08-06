@@ -180,3 +180,6 @@ Version 1.5.3:
 
 Version 1.5.4:
 - Adding an icon to a page no longer makes SpringBoard rebuild its image, which showed as a stutter on the first swipe after unlocking
+
+Version 1.5.5:
+- Dock labels are no longer rebuilt several times over on unlock
