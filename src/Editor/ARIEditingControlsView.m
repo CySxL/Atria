@@ -7,7 +7,13 @@
 #import "../Manager/ARIEditManager.h"
 #import "../Manager/ARITweakManager.h"
 
-@implementation ARIEditingControlsView
+// Value changed arrives at the touch sample rate, and every pass writes
+// preferences and lays out each page, so apply on a throttle instead
+static const NSTimeInterval kARIApplyInterval = 1.0 / 30.0;
+
+@implementation ARIEditingControlsView {
+    BOOL _applyScheduled;
+}
 
 - (instancetype)initWithTargetSetting:(NSString *)key {
     self = [super init];
@@ -24,6 +30,7 @@
         UISlider *slider = [[UISlider alloc] init];
         [slider addTarget:self action:@selector(sliderDidChange:event:) forControlEvents:UIControlEventValueChanged];
         [slider addTarget:self action:@selector(sliderDidBegin:) forControlEvents:UIControlEventTouchDown];
+        [slider addTarget:self action:@selector(sliderDidEnd:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
         [slider setBackgroundColor:[UIColor clearColor]];
         slider.minimumValue = lower;
         slider.maximumValue = upper;
@@ -163,22 +170,41 @@
     [self updateCurrentText];
 }
 
-- (void)sliderDidChange:(UISlider *)slider event:(UIEvent *)event {
-    [self updateCurrentText];
-    float value = slider.value;
-
+- (void)_applyCurrentValueAnimated:(BOOL)animated {
     ARITweakManager *manager = [ARITweakManager sharedInstance];
     // -currentIconListViewIfSinglePage will return nil if not in single page mode, thus reading our global config
     NSString *key = [self _adjustedKeyForCurrentOrientation];
     SBIconListView *list = [[ARIEditManager sharedInstance] currentIconListViewIfSinglePage];
-    if([manager floatValueForKey:key forListView:list] != value) {
-        [manager setValue:@(value) forKey:key forListView:list];
-        [manager updateLayoutForEditing:YES];
-    }
+    float value = self.slider.value;
+    if([manager floatValueForKey:key forListView:list] == value) return;
+
+    [manager setValue:@(value) forKey:key forListView:list];
+    [manager updateLayoutForEditing:animated];
+}
+
+- (void)sliderDidChange:(UISlider *)slider event:(UIEvent *)event {
+    [self updateCurrentText];
+    if(_applyScheduled) return;
+
+    // Unanimated during the drag: a 0.6 second animation started on every
+    // sample leaves dozens of them running over the same icons at once
+    _applyScheduled = YES;
+    __weak __typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kARIApplyInterval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        __typeof(self) strongSelf = weakSelf;
+        if(!strongSelf) return;
+        strongSelf->_applyScheduled = NO;
+        [strongSelf _applyCurrentValueAnimated:NO];
+    });
 }
 
 - (void)sliderDidBegin:(UISlider *)slider {
     [[ARITweakManager sharedInstance] feedbackForButton];
+}
+
+// The last sample of a drag can land inside the throttle window
+- (void)sliderDidEnd:(UISlider *)slider {
+    [self _applyCurrentValueAnimated:YES];
 }
 
 - (BOOL)textFieldShouldBeginEditing:(UITextField *)textField {
