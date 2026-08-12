@@ -21,8 +21,6 @@
     NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, NSString *> *> *_pageKeyCache;
     NSMutableDictionary<NSString *, NSNumber *> *_boolCache;
     BOOL _hasPerPageLayouts;
-    NSUInteger _preferenceGeneration;
-    NSUInteger _labelOffsetGeneration;
     BOOL _labelOffsetStateValid;
     BOOL _usesDockLabelOffset;
     BOOL _usesHsLabelOffset;
@@ -422,7 +420,7 @@
 - (void)_migrateSettingFromKey:(NSString *)oldKey toKey:(NSString *)newKey {
     [_preferences setObject:[self rawValueForKey:oldKey] forKey:newKey];
     [_preferences removeObjectForKey:oldKey];
-    [self _didWritePreferences];
+    [self _didWritePreferencesForKey:newKey];
 }
 
 - (void)_registerOption:(NSString *)key
@@ -704,29 +702,30 @@
     return [_preferences objectForKey:key] ?: [_optionsRegistry objectForKey:key].defaultValue;
 }
 
-// Anything derived from preferences is rebuilt against this, so a write can
-// never leave a cached answer behind whatever path made it
-- (void)_didWritePreferences {
-    _preferenceGeneration++;
+// The flags below are sticky, so they only ever need to notice an offset
+// switching on. Anything else a write touches would not change the answer.
+- (void)_didWritePreferencesForKey:(NSString *)key {
+    if(!key || [key hasSuffix:@"label_offset"]) _labelOffsetStateValid = NO;
 }
 
 // The layout path asks this for every icon, so it has to be cheap. Sticky on
 // purpose: were it allowed back to NO, setting an offset to zero would return
 // early and leave the last offset stuck on the label instead of clearing it.
 - (void)_ensureLabelOffsetState {
-    if(_labelOffsetStateValid && _labelOffsetGeneration == _preferenceGeneration) return;
-    _labelOffsetGeneration = _preferenceGeneration;
+    if(_labelOffsetStateValid) return;
     _labelOffsetStateValid = YES;
 
     _usesDockLabelOffset |= [self floatValueForKey:@"dock_label_offset"] != 0;
     _usesHsLabelOffset |= [self floatValueForKey:@"hs_label_offset"] != 0;
     if(_usesHsLabelOffset || !_hasPerPageLayouts) return;
 
-    // A page may set one while the global value is still zero
-    NSDictionary *preferences = [_preferences persistentDomainForName:ARIPreferenceDomain];
-    for(NSString *key in preferences) {
-        if(![key hasSuffix:@"hs_label_offset"]) continue;
-        if([preferences[key] floatValue] == 0) continue;
+    // A page may set one while the global value is still zero. The prefixes are
+    // already known, so ask for those keys rather than dumping the whole domain,
+    // which would carry the saved icon state with it.
+    for(NSString *prefix in (NSArray *)[_preferences objectForKey:@"_perPageListViews"]) {
+        if(![prefix isKindOfClass:[NSString class]]) continue;
+        NSString *key = [self _pageKeyForPrefix:prefix key:@"hs_label_offset"];
+        if([[_preferences objectForKey:key] floatValue] == 0) continue;
         _usesHsLabelOffset = YES;
         return;
     }
@@ -766,7 +765,7 @@
         if(![val isEqual:[_preferences objectForKey:key]])
             [_preferences setObject:val forKey:key];
         [_boolCache removeObjectForKey:key];
-        [self _didWritePreferences];
+        [self _didWritePreferencesForKey:key];
     }
 }
 
@@ -776,13 +775,13 @@
 - (void)setRawValue:(id)val forKey:(NSString *)key {
     [_preferences setObject:val forKey:key];
     [_boolCache removeObjectForKey:key];
-    [self _didWritePreferences];
+    [self _didWritePreferencesForKey:key];
 }
 
 - (void)resetValueForKey:(NSString *)key {
     [_preferences removeObjectForKey:key];
     [_boolCache removeObjectForKey:key];
-    [self _didWritePreferences];
+    [self _didWritePreferencesForKey:key];
 }
 
 // Get/set preference values by icon list view
@@ -857,7 +856,7 @@
 - (void)reloadPreferenceState {
     _hasPerPageLayouts = [(NSArray *)[_preferences objectForKey:@"_perPageListViews"] count] > 0;
     [_boolCache removeAllObjects];
-    [self _didWritePreferences];
+    [self _didWritePreferencesForKey:nil];
 }
 
 - (void)deleteCustomForListView:(SBIconListView *)listView {
@@ -889,7 +888,7 @@
         [_preferences setObject:[self rawValueForKey:key]
                          forKey:[NSString stringWithFormat:@"%@%@", prefix, key]];
     }
-    [self _didWritePreferences];
+    [self _didWritePreferencesForKey:nil];
     [self updateLayoutForEditing:YES];
 }
 
