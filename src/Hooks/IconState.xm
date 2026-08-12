@@ -6,22 +6,30 @@
 #import "Shared.h"
 #import "../Manager/ARITweakManager.h"
 
+// This is handed straight to the icon model while SpringBoard is coming up, so
+// anything but a populated dictionary would crash it before Settings can be
+// reached to clear the value. Drop what we can't use and fall back to the store.
+static BOOL ARIIconStateIsUsable(id state) {
+    return [state isKindOfClass:[NSDictionary class]] && [(NSDictionary *)state count] > 0;
+}
+
 %hook SBDefaultIconModelStore
 
 - (id)loadCurrentIconState:(NSError **)error {
     ARITweakManager *manager = [ARITweakManager sharedInstance];
     id lastKnownState = [manager rawValueForKey:@"_saveState"];
-    if(lastKnownState) {
+    if(ARIIconStateIsUsable(lastKnownState)) {
         return lastKnownState;
     }
+    if(lastKnownState) [manager resetValueForKey:@"_saveState"];
 
     id orig = %orig;
-    if(orig) [manager setRawValue:orig forKey:@"_saveState"];
+    if(ARIIconStateIsUsable(orig)) [manager setRawValue:orig forKey:@"_saveState"];
     return orig;
 }
 
 - (BOOL)saveCurrentIconState:(id)state error:(NSError **)error {
-    if(state) [[ARITweakManager sharedInstance] setRawValue:state forKey:@"_saveState"];
+    if(ARIIconStateIsUsable(state)) [[ARITweakManager sharedInstance] setRawValue:state forKey:@"_saveState"];
     return %orig;
 }
 
