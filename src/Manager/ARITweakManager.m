@@ -55,10 +55,6 @@
         _pageKeyCache = [NSMutableDictionary new];
         _boolCache = [NSMutableDictionary new];
 
-        // Migrate old settings
-        [self _migrateSettings];
-        [self reloadPreferenceState];
-
         // Create settings
         _orderedSettingKeys = [[NSMutableOrderedSet alloc] initWithCapacity:50];
         _optionsRegistry = [[NSMutableDictionary alloc] init];
@@ -356,6 +352,11 @@
                  defaultValue:@(0)
                    lowerLimit:-200.0F
                    upperLimit:200.0F];
+
+        // After registration: migration reads and writes through the same
+        // accessors, and those fall back to the registered defaults
+        [self _migrateSettings];
+        [self reloadPreferenceState];
     }
     return self;
 }
@@ -379,13 +380,15 @@
     [self _migrateSettingFromKey:@"saveState" toKey:@"_saveState"];
 
     // Update list of per-page layout enabled list views
-    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:@"_perPageListViews"] mutableCopy] ?: [NSMutableArray new];
+    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:@"_perPageListViews"] mutableCopy];
     NSUInteger itemCount = [perPage count];
-    for(NSUInteger i = 0; i < itemCount; i++) {
-        NSString *newValue = [NSString stringWithFormat:@"Page%@_", [perPage[i] stringByReplacingOccurrencesOfString:@"_" withString:@""]];
-        [perPage replaceObjectAtIndex:i withObject:newValue];
+    if(itemCount > 0) {
+        for(NSUInteger i = 0; i < itemCount; i++) {
+            NSString *newValue = [NSString stringWithFormat:@"Page%@_", [perPage[i] stringByReplacingOccurrencesOfString:@"_" withString:@""]];
+            [perPage replaceObjectAtIndex:i withObject:newValue];
+        }
+        [self setValue:perPage forKey:@"_perPageListViews"];
     }
-    [self setValue:perPage forKey:@"_perPageListViews"];
 
     // Our own domain only. -dictionaryRepresentation merges in NSGlobalDomain
     // and the system defaults, which the rewrites below would happily match.
