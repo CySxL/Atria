@@ -475,8 +475,7 @@
         if(forDock) {
             // Layout dock icons and set alpha
             if(![[self class] isUsingFloatingDock]) {
-                // -dockListView doesn't exist on 13 but the ivar does
-                SBIconListView *listView = (SBIconListView *)[rootFolderView valueForKeyPath:@"_dockListView"];
+                SBIconListView *listView = [self _dockListView];
                 [[rootFolderView dockView] _atriaUpdateDockForSettingsChanged];
                 [self _refreshIconViewsInListView:listView];
                 [listView layoutIconsNow];
@@ -521,6 +520,16 @@
     }
 }
 
+// -dockListView doesn't exist on 13 but the ivar does. KVC raises rather than
+// returning nil when an ivar is renamed, and this runs inside SpringBoard.
+- (SBIconListView *)_dockListView {
+    @try {
+        return (SBIconListView *)[[self rootFolderView] valueForKeyPath:@"_dockListView"];
+    } @catch(NSException *exc) {
+        return nil;
+    }
+}
+
 // Icon views only consult the label setting when they are added to a list, so
 // nudge the existing ones when the dock label switch is toggled
 - (void)_refreshIconView:(SBIconView *)iconView {
@@ -530,17 +539,41 @@
 }
 
 - (void)_refreshIconViewsInListView:(SBIconListView *)listView {
+    [self _refreshIconViewsInListView:listView updatingDropShadow:NO];
+}
+
+- (void)_refreshIconViewsInListView:(SBIconListView *)listView updatingDropShadow:(BOOL)dropShadow {
     static Class iconViewClass;
     static dispatch_once_t token;
     dispatch_once(&token, ^{
         iconViewClass = objc_getClass("SBIconView");
     });
 
+    BOOL editing = dropShadow && [[[objc_getClass("SBIconController") sharedInstance] iconManager] isEditing];
+
     // -icons hands back the model's icons rather than the views showing them,
     // so walk the hierarchy instead of messaging whatever that array holds
     for(UIView *subview in listView.subviews) {
         if(![subview isKindOfClass:iconViewClass]) continue;
         [self _refreshIconView:(SBIconView *)subview];
+        if(dropShadow) [(SBIconView *)subview _atriaSetupDropShadow:editing];
+    }
+}
+
+// What a settings change can touch without going near the grid. The layout
+// hooks are optional, and forcing a visible range against row and column counts
+// they aren't applying would hide icons.
+- (void)refreshPreferenceDependentViews {
+    for(SBIconListView *listView in [self allRootListViews])
+        [self _refreshIconViewsInListView:listView updatingDropShadow:YES];
+
+    if(![[self class] isUsingFloatingDock]) {
+        [self _refreshIconViewsInListView:[self _dockListView] updatingDropShadow:YES];
+        [[[self rootFolderView] dockView] _atriaUpdateDockForSettingsChanged];
+    } else {
+        SBFloatingDockController *fdController = [objc_getClass("SBFloatingDockController") _atriaSharedInstance];
+        [self _refreshIconViewsInListView:[fdController userIconListView] updatingDropShadow:YES];
+        [[[fdController floatingDockViewController] dockView] _atriaUpdateDockForSettingsChanged];
     }
 }
 

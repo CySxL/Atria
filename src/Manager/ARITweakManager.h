@@ -206,6 +206,7 @@ typedef struct SBRootFolderViewMetrics {
 @property (nonatomic, readonly, assign) BOOL usesHsLabelOffset;
 - (void)updateLayoutForEditing:(BOOL)animated;
 - (void)updateLayoutForRoot:(BOOL)forRoot forDock:(BOOL)forDock animated:(BOOL)animated;
+- (void)refreshPreferenceDependentViews;
 - (void)relayoutEntireIconModel;
 - (void)feedbackForButton;
 - (void)onSpringboardLaunched;
