@@ -310,25 +310,48 @@ static BOOL didLaunchSB = NO;
 
 %end
 
-static void preferencesChanged() {
+static BOOL layoutHooksInstalled = NO;
+
+static void applyPreferencesChanged() {
+	ARITweakManager *manager = [ARITweakManager sharedInstance];
 	// Settings may have been imported behind our back
-	[[ARITweakManager sharedInstance] reloadPreferenceState];
-	[[ARITweakManager sharedInstance] updateLayoutForRoot:YES forDock:YES animated:YES];
+	[manager reloadPreferenceState];
+	if(layoutHooksInstalled)
+		[manager updateLayoutForRoot:YES forDock:YES animated:YES];
+	else
+		[manager refreshPreferenceDependentViews];
+}
+
+// Every switch in the prefs bundle posts this, and a Darwin notification can
+// come from anywhere, so collapse a burst into one pass
+static void preferencesChanged() {
+	static BOOL queued = NO;
+	if(queued) return;
+	queued = YES;
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+		queued = NO;
+		applyPreferencesChanged();
+	});
 }
 
 %ctor {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
-	if([manager isEnabled] && [manager boolValueForKey:@"layoutEnabled"]) {
+	if(![manager isEnabled]) return;
+
+	if([manager boolValueForKey:@"layoutEnabled"]) {
 		ARILog(@"Loading hooks from %s", __FILE__);
 		%init();
-
-		CFNotificationCenterAddObserver(
-			CFNotificationCenterGetDarwinNotifyCenter(),
-			NULL,
-			(CFNotificationCallback)preferencesChanged,
-			(CFStringRef)@"me.lau.Atria/ReloadPrefs",
-			NULL,
-			CFNotificationSuspensionBehaviorDeliverImmediately
-		);
+		layoutHooksInstalled = YES;
 	}
+
+	// Registered either way: with layout off the rest of the settings still
+	// need somewhere to hear about a change
+	CFNotificationCenterAddObserver(
+		CFNotificationCenterGetDarwinNotifyCenter(),
+		NULL,
+		(CFNotificationCallback)preferencesChanged,
+		(CFStringRef)@"me.lau.Atria/ReloadPrefs",
+		NULL,
+		CFNotificationSuspensionBehaviorDeliverImmediately
+	);
 }
