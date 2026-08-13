@@ -166,7 +166,7 @@
         _perPage.tintColor = [UIColor labelColor];
         _perPage.alpha = 0;
         // No per-page
-        if([targetLoc isEqualToString:@"dock"] || [targetLoc isEqualToString:@"pagedot"]) _perPage.hidden = YES;
+        if([targetLoc isEqualToString:@"dock"]) _perPage.hidden = YES;
 
         // Add tap gestures and pan
         UITapGestureRecognizer *xTapped = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(closeButtonTapped:)];

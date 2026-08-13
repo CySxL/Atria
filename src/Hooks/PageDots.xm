@@ -34,8 +34,12 @@
     %orig(metrics);
 
     ARITweakManager *manager = [ARITweakManager sharedInstance];
-	CGFloat offsetX = [manager floatValueForKey:@"pagedot_offsetX"];
-	CGFloat offsetY = [manager floatValueForKey:@"pagedot_offsetY"];
+	// One control serves every page, so it follows whichever page is showing.
+	// This only runs when the control is laid out, so a per-page offset arrives
+	// as the page settles rather than tracking the swipe.
+	SBIconListView *current = [manager currentListView];
+	CGFloat offsetX = [manager floatValueForKey:@"pagedot_offsetX" forListView:current];
+	CGFloat offsetY = [manager floatValueForKey:@"pagedot_offsetY" forListView:current];
 	if(offsetX == 0 && offsetY == 0) return;
 
 	UIView *pageControl = [manager firmwareVersion] >= 16 ? self.scrollAccessoryView : self.pageControl;

@@ -39,8 +39,10 @@
 
         // Check if this list view has custom config
         _current = [[ARITweakManager sharedInstance] currentListView];
-        // No per page layout for the following
-        if(![targetLoc isEqualToString:@"dock"] && ![targetLoc isEqualToString:@"pagedot"]) {
+        // The dock is one thing for the whole homescreen, so it has no per-page
+        // form. The page control is shared too, but it can read whichever page
+        // is showing, so it does.
+        if(![targetLoc isEqualToString:@"dock"]) {
             _singleList = [[ARITweakManager sharedInstance] doesCustomConfigForListViewExist:_current];
         } else {
             _singleList = NO;
