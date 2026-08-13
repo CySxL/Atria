@@ -14,7 +14,17 @@
 // How long a value that has stopped moving takes to settle into place
 static const NSTimeInterval kARISettledDuration = 0.6;
 
+// The dock list view is found by walking the hierarchy, so hold it weakly
+// rather than repeating the walk, and never keep it alive
+@interface ARIWeakBox : NSObject
+@property (nonatomic, weak) id object;
+@end
+
+@implementation ARIWeakBox
+@end
+
 @implementation ARITweakManager {
+    ARIWeakBox *_dockListViewRef;
     BOOL _enabled;
     NSUserDefaults *_preferences;
     NSMutableOrderedSet<NSString *> *_orderedSettingKeys;
@@ -537,14 +547,39 @@ static const NSTimeInterval kARISettledDuration = 0.6;
                      completion:updateVisibleIcons];
 }
 
-// -dockListView doesn't exist on 13 but the ivar does. KVC raises rather than
-// returning nil when an ivar is renamed, and this runs inside SpringBoard.
-- (SBIconListView *)_dockListView {
-    @try {
-        return (SBIconListView *)[[self rootFolderView] valueForKeyPath:@"_dockListView"];
-    } @catch(NSException *exc) {
-        return nil;
+static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
+    static Class listViewClass;
+    static dispatch_once_t token;
+    dispatch_once(&token, ^{
+        listViewClass = objc_getClass("SBIconListView");
+    });
+
+    if(!view || depth > 4) return nil;
+    for(UIView *subview in view.subviews) {
+        if([subview isKindOfClass:listViewClass]) {
+            SBIconListView *candidate = (SBIconListView *)subview;
+            if(IconListIsDock(candidate)) return candidate;
+        }
+        SBIconListView *found = ARIFindDockListView(subview, depth + 1);
+        if(found) return found;
     }
+    return nil;
+}
+
+// The _dockListView ivar the original code read is empty from iOS 16 on, and
+// nothing said so: the dock kept working because everything else reaches it by
+// another route, and only the label offset went through here. Find the list by
+// the location it reports instead of by an ivar name.
+- (SBIconListView *)_dockListView {
+    SBIconListView *cached = _dockListViewRef.object;
+    if(cached.superview && IconListIsDock(cached)) return cached;
+
+    SBRootFolderView *rootFolderView = [self rootFolderView];
+    SBIconListView *listView = ARIFindDockListView([rootFolderView dockView], 0)
+                                   ?: ARIFindDockListView(rootFolderView, 0);
+    if(!_dockListViewRef) _dockListViewRef = [ARIWeakBox new];
+    _dockListViewRef.object = listView;
+    return listView;
 }
 
 // Icon views only consult the label setting when they are added to a list, so
