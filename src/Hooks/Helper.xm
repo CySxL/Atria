@@ -21,7 +21,11 @@
     [[ARIEditManager sharedInstance] toggleEditView:NO withTargetLocation:nil];
 
     ARITweakManager *manager = [ARITweakManager sharedInstance];
-    if(![manager boolValueForKey:ARIDidSplashPreferenceKey]) {
+    // -viewDidAppear: runs again every time an app is closed, so the guide would
+    // queue itself up once more before the user has pressed Dismiss
+    static BOOL splashQueued = NO;
+    if(![manager boolValueForKey:ARIDidSplashPreferenceKey] && !splashQueued) {
+        splashQueued = YES;
         ARISplashViewController *splash = [[ARISplashViewController alloc] initWithSubtitle:@"Getting started"];
         [splash addEntry:@"3D touch an icon or triple tap your wallpaper to edit layout" image:[UIImage systemImageNamed:[manager firmwareVersion] >= 14 ? @"square.grid.3x3.fill.square" : @"square"]];
         [splash addEntry:@"Drag the slider on the editor to see changes in real-time" image:[UIImage systemImageNamed:@"slider.horizontal.3"]];
@@ -30,7 +34,9 @@
         [splash addEntry:@"See the preference pane in the Settings app for even more options" image:[UIImage systemImageNamed:[manager firmwareVersion] >= 14 ? @"gearshape" : @"gear"]];
         [splash addEntry:@"If you encounter a bug, don't hesitate to report it! Please include your device and iOS version." image:[UIImage systemImageNamed:[manager firmwareVersion] >= 14 ? @"ladybug" : @"ant"]];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            [[objc_getClass("SBIconController") sharedInstance] presentViewController:splash animated:YES completion:nil];
+            SBIconController *controller = [objc_getClass("SBIconController") sharedInstance];
+            if(controller.presentedViewController) return;
+            [controller presentViewController:splash animated:YES completion:nil];
         });
     }
 }
