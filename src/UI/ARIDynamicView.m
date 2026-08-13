@@ -32,8 +32,10 @@
     if(!str) return [UIColor colorWithWhite:1.0 alpha:alpha];
     str = [str stringByReplacingOccurrencesOfString:@"#" withString:@"0x"];
     NSScanner *scanner = [NSScanner scannerWithString:str];
-    unsigned int hexCode;
-    [scanner scanHexInt:&hexCode];
+    // Left uninitialised this reads the stack when the string isn't hex, and an
+    // imported settings string can put anything in the colour keys
+    unsigned int hexCode = 0xFFFFFF;
+    if(![scanner scanHexInt:&hexCode]) return [UIColor colorWithWhite:1.0 alpha:alpha];
     return UIColorFromHexValue(hexCode, alpha);
 }
 

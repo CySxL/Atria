@@ -78,7 +78,7 @@
 			<key>showAlphaSlider</key>
 			<false/>
 			<key>default</key>
-			<string></string>
+			<string>#FFFFFF</string>
 			<key>defaults</key>
 			<string>me.lau.AtriaPrefs</string>
 			<key>key</key>
