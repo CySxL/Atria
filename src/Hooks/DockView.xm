@@ -37,11 +37,12 @@ static SBFloatingDockController *fdController;
 
 - (void)traitCollectionDidChange:(UITraitCollection *)old {
     %orig(old);
-    // Call the setter to force the background alpha to reset
-    // This fixes the dock becoming full alpha after changing dark/light mode
-    // Don't ask me how, but calling -setBackgroundAlpha: directly wasn't working,
-    // but this does, even with 0.0 delay. What works works I guess
-    [self performSelector:@selector(setBackgroundAlpha:) withObject:@(1.0f) afterDelay:0.0];
+    // The dock resets its own alpha as part of the trait change, so reapply
+    // once it has finished rather than from inside the callback. This is what
+    // fixes the dock going full alpha on a dark/light mode switch.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self _atriaUpdateDockForSettingsChanged];
+    });
 }
 
 %end
@@ -143,7 +144,9 @@ static SBFloatingDockController *fdController;
 
 - (void)traitCollectionDidChange:(UITraitCollection *)old {
     %orig(old);
-    [self performSelector:@selector(_atriaUpdateDockForSettingsChanged) withObject:nil afterDelay:0.0];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self _atriaUpdateDockForSettingsChanged];
+    });
 }
 
 %end
