@@ -7,10 +7,6 @@
 #import "../Manager/ARIEditManager.h"
 #import "../Manager/ARITweakManager.h"
 
-// Value changed arrives at the touch sample rate, and every pass writes
-// preferences and lays out each page, so apply on a throttle instead
-static const NSTimeInterval kARIApplyInterval = 1.0 / 30.0;
-
 @implementation ARIEditingControlsView {
     BOOL _applyScheduled;
 }
@@ -170,7 +166,7 @@ static const NSTimeInterval kARIApplyInterval = 1.0 / 30.0;
     [self updateCurrentText];
 }
 
-- (void)_applyCurrentValueAnimated:(BOOL)animated {
+- (void)_applyCurrentValueWithDuration:(NSTimeInterval)duration {
     ARITweakManager *manager = [ARITweakManager sharedInstance];
     // -currentIconListViewIfSinglePage will return nil if not in single page mode, thus reading our global config
     NSString *key = [self _adjustedKeyForCurrentOrientation];
@@ -179,22 +175,24 @@ static const NSTimeInterval kARIApplyInterval = 1.0 / 30.0;
     if([manager floatValueForKey:key forListView:list] == value) return;
 
     [manager setValue:@(value) forKey:key forListView:list];
-    [manager updateLayoutForEditing:animated];
+    [manager updateLayoutForEditingWithDuration:duration];
 }
 
+// Value changed arrives at the touch sample rate, and every pass writes
+// preferences and lays out each page. Applying on an interval and animating for
+// exactly that long keeps the motion continuous with one animation alive at a
+// time, where the original 0.6 second animation per sample left dozens.
 - (void)sliderDidChange:(UISlider *)slider event:(UIEvent *)event {
     [self updateCurrentText];
     if(_applyScheduled) return;
 
-    // Unanimated during the drag: a 0.6 second animation started on every
-    // sample leaves dozens of them running over the same icons at once
     _applyScheduled = YES;
     __weak __typeof(self) weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kARIApplyInterval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(ARIDragApplyInterval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         __typeof(self) strongSelf = weakSelf;
         if(!strongSelf) return;
         strongSelf->_applyScheduled = NO;
-        [strongSelf _applyCurrentValueAnimated:NO];
+        [strongSelf _applyCurrentValueWithDuration:ARIDragApplyInterval];
     });
 }
 
@@ -204,7 +202,7 @@ static const NSTimeInterval kARIApplyInterval = 1.0 / 30.0;
 
 // The last sample of a drag can land inside the throttle window
 - (void)sliderDidEnd:(UISlider *)slider {
-    [self _applyCurrentValueAnimated:YES];
+    [self _applyCurrentValueWithDuration:0.2];
 }
 
 - (BOOL)textFieldShouldBeginEditing:(UITextField *)textField {

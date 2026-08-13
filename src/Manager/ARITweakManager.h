@@ -10,6 +10,11 @@
 
 static NSString *const ARIPreferenceDomain = @"me.lau.AtriaPrefs";
 
+// A drag applies on this interval and animates for exactly as long, so one step
+// finishes as the next begins. The animation is what makes the motion look
+// continuous; dropping it leaves the layout stepping between applied values.
+static const NSTimeInterval ARIDragApplyInterval = 1.0 / 60.0;
+
 typedef struct SBHIconGridSize {
     short width;
     short height;
@@ -205,7 +210,9 @@ typedef struct SBRootFolderViewMetrics {
 @property (nonatomic, readonly, assign) BOOL usesDockLabelOffset;
 @property (nonatomic, readonly, assign) BOOL usesHsLabelOffset;
 - (void)updateLayoutForEditing:(BOOL)animated;
+- (void)updateLayoutForEditingWithDuration:(NSTimeInterval)duration;
 - (void)updateLayoutForRoot:(BOOL)forRoot forDock:(BOOL)forDock animated:(BOOL)animated;
+- (void)updateLayoutForRoot:(BOOL)forRoot forDock:(BOOL)forDock duration:(NSTimeInterval)duration;
 - (void)refreshPreferenceDependentViews;
 - (void)relayoutEntireIconModel;
 - (void)feedbackForButton;

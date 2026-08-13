@@ -11,6 +11,9 @@
 
 #import <objc/runtime.h>
 
+// How long a value that has stopped moving takes to settle into place
+static const NSTimeInterval kARISettledDuration = 0.6;
+
 @implementation ARITweakManager {
     BOOL _enabled;
     NSUserDefaults *_preferences;
@@ -444,6 +447,10 @@
 // Runtime manager methods
 
 - (void)updateLayoutForEditing:(BOOL)animated {
+    [self updateLayoutForEditingWithDuration:animated ? kARISettledDuration : 0];
+}
+
+- (void)updateLayoutForEditingWithDuration:(NSTimeInterval)duration {
     NSString *editingLocation = [ARIEditManager sharedInstance].editingLocation;
     if(!editingLocation) return;
 
@@ -454,12 +461,16 @@
     }
 
     BOOL updateRoot = [editingLocation isEqualToString:@"hs"] || [editingLocation isEqualToString:@"label"] || [editingLocation isEqualToString:@"blur"];
-    [self updateLayoutForRoot:updateRoot forDock:[editingLocation isEqualToString:@"dock"] animated:animated];
+    [self updateLayoutForRoot:updateRoot forDock:[editingLocation isEqualToString:@"dock"] duration:duration];
 }
 
 // Updates all layout
 
 - (void)updateLayoutForRoot:(BOOL)forRoot forDock:(BOOL)forDock animated:(BOOL)animated {
+    [self updateLayoutForRoot:forRoot forDock:forDock duration:animated ? kARISettledDuration : 0];
+}
+
+- (void)updateLayoutForRoot:(BOOL)forRoot forDock:(BOOL)forDock duration:(NSTimeInterval)duration {
     SBRootFolderView *rootFolderView = [self rootFolderView];
 
     void (^updateVisibleIcons)(BOOL finished) = ^void(BOOL finished) {
@@ -508,17 +519,22 @@
         }
     };
 
-    // If we want animation, pass the block here. Otherwise, call the block directly
-    if(animated) {
-        [UIView animateWithDuration:0.6f
-                              delay:0.0f
-                            options:UIViewAnimationOptionCurveEaseInOut
-                         animations:applyLayout
-                         completion:updateVisibleIcons];
-    } else {
+    if(duration <= 0) {
         applyLayout();
         updateVisibleIcons(YES);
+        return;
     }
+
+    // A drag step has to run straight into the next one, so it interpolates
+    // linearly. A settled value eases.
+    UIViewAnimationOptions curve = duration <= ARIDragApplyInterval
+                                       ? UIViewAnimationOptionCurveLinear
+                                       : UIViewAnimationOptionCurveEaseInOut;
+    [UIView animateWithDuration:duration
+                          delay:0.0f
+                        options:curve
+                     animations:applyLayout
+                     completion:updateVisibleIcons];
 }
 
 // -dockListView doesn't exist on 13 but the ivar does. KVC raises rather than
