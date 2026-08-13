@@ -216,3 +216,7 @@ Version 1.5.11:
 Version 1.6.0:
 - The dock label offset follows the slider again with Force Floating Dock on. 1.5.8 narrowed a check meant for one problem call, and it took the dock's own icons with it
 - Everything from 1.5.7 through 1.5.12, tested on device: the saved icon layout is checked before SpringBoard is given it, settings apply with the layout hooks off, dragging a slider no longer heats the phone, scrolling an icon into view works across the homescreen again, page labels size themselves and survive an import, and colours fall back to white instead of to whatever was on the stack
+
+Version 1.6.1:
+- Page dots can be positioned per page, like the rest of the editor. One control serves every page, so it moves as the page settles rather than following the swipe
+- Added Hide Open Folder Background, which removes the panel an opened folder sits on
