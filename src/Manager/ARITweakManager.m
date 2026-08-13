@@ -993,14 +993,18 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return [self isUsingFloatingDock] && [[self sharedInstance] isDeviceIPad];
 }
 
+// These two only act on a dock SpringBoard has already built, so they follow
+// the forced answer. Withholding them left the keyboard fighting a floating
+// dock nothing was allowed to put away.
+
 + (void)dismissFloatingDockIfPossible {
-    if([self shouldTouchFloatingDockViews]) {
+    if([self isUsingFloatingDock]) {
         [[objc_getClass("SBFloatingDockController") _atriaSharedInstance] _dismissFloatingDockIfPresentedAnimated:YES completionHandler:nil];
     }
 }
 
 + (void)presentFloatingDockIfPossible {
-    if([self shouldTouchFloatingDockViews]) {
+    if([self isUsingFloatingDock]) {
         [[objc_getClass("SBFloatingDockController") _atriaSharedInstance] _presentFloatingDockIfDismissedAnimated:YES completionHandler:nil];
     }
 }
