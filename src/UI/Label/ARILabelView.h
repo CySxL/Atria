@@ -30,4 +30,5 @@ static inline CGFloat ARIPageLabelReservedSpaceForTextSize(CGFloat textSize) {
 - (NSString *)loadRawText;
 - (NSString *)processRawText:(NSString *)rawText isScheduledUpdate:(BOOL)scheduled;
 - (void)saveTextValue:(NSString *)text;
++ (BOOL)isEditingAnyLabel;
 @end

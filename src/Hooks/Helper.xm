@@ -58,14 +58,16 @@
 %end
 
 
-// Only installed when a label can actually be edited, since swallowing this
-// call outright also breaks scroll-to-visible for everything else
+// Only installed when a label can actually be edited
 %group PageLabelScrollFix
 %hook SBIconScrollView
 
 - (void)scrollRectToVisible:(CGRect)rect animated:(BOOL)animated {
-    // Prevents the scroll view from scrolling on its own when typing in text fields
-    // for homescreen page labels. Crossing my fingers this doesn't break anything.
+    // The keyboard makes the scroll view chase the page label's text field.
+    // Swallowing this outright takes scroll-to-visible away from everything
+    // else on the homescreen, so only do it while a label is being typed in.
+    if([ARILabelView isEditingAnyLabel]) return;
+    %orig;
 }
 
 %end

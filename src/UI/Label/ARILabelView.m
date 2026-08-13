@@ -152,6 +152,22 @@
     _labelTopAnchor.constant = origin.y + topInset;
 }
 
+// Read by the scroll fix in Helper.xm, which only has to swallow
+// -scrollRectToVisible:animated: while a label has the keyboard up
+static NSUInteger _editingLabelCount = 0;
+
++ (BOOL)isEditingAnyLabel {
+    return _editingLabelCount > 0;
+}
+
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+    _editingLabelCount++;
+}
+
+- (void)textFieldDidEndEditing:(UITextField *)textField {
+    if(_editingLabelCount > 0) _editingLabelCount--;
+}
+
 - (BOOL)textFieldShouldBeginEditing:(UITextField *)textField {
     if([[ARITweakManager sharedInstance] boolValueForKey:@"lockPageLabels"]) return NO;
     [ARITweakManager dismissFloatingDockIfPossible];
