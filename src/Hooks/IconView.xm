@@ -425,7 +425,10 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 %new
 - (void)_atriaReapplyLabelOffset {
-	// Always from the unshifted frame, so this never stacks on itself
+	// Always from the unshifted frame, so this never stacks on itself. A label
+	// rebuilt by -setAllowsLabelArea: has no recorded frame yet, and a frame is
+	// only ever shifted after being recorded, so the current one is unshifted.
+	if(CGRectIsEmpty(self._atriaNaturalFrame)) self._atriaNaturalFrame = self.frame;
 	if(!CGRectIsEmpty(self._atriaNaturalFrame)) [self setFrame:self._atriaNaturalFrame];
 }
 
