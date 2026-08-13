@@ -34,6 +34,7 @@ static const NSTimeInterval kARISettledDuration = 0.6;
     NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, NSString *> *> *_pageKeyCache;
     NSMutableDictionary<NSString *, NSNumber *> *_boolCache;
     BOOL _hasPerPageLayouts;
+    BOOL _hasPageScopedKeys;
     BOOL _labelOffsetStateValid;
     BOOL _usesDockLabelOffset;
     BOOL _usesHsLabelOffset;
@@ -760,6 +761,8 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 // switching on. Anything else a write touches would not change the answer.
 - (void)_didWritePreferencesForKey:(NSString *)key {
     if(!key || [key hasSuffix:@"label_offset"]) _labelOffsetStateValid = NO;
+    // A page label saved just now has to be readable before the next reload
+    if([key hasPrefix:@"Page"]) _hasPageScopedKeys = YES;
 }
 
 // The layout path asks this for every icon, so it has to be cheap. Sticky on
@@ -845,10 +848,11 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 // key at all unless the list view actually has a per-page prefix.
 
 - (id)_pageValueForKey:(NSString *)key forListView:(SBIconListView *)list {
-    // With no per-page layouts there are no Page%d_ keys to find, so skip the
-    // list view index lookup entirely. Read path only: -createCustomForListView:
-    // needs a real prefix before the page is registered.
-    if(!_hasPerPageLayouts) return nil;
+    // Skip the list view index lookup when nothing is stored per page. Keyed on
+    // the presence of Page%d_ keys and not on the per-page layout list, because
+    // a page label writes one without registering a layout. Read path only:
+    // -createCustomForListView: needs a real prefix before the page is added.
+    if(!_hasPageScopedKeys) return nil;
 
     NSString *prefix = [self prefixForListView:list];
     if(![prefix length]) return nil;
@@ -908,7 +912,20 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 // Called on launch and whenever preferences change underneath us, so anything
 // derived from defaults and held in memory gets rebuilt here
 - (void)reloadPreferenceState {
-    _hasPerPageLayouts = [(NSArray *)[_preferences objectForKey:@"_perPageListViews"] count] > 0;
+    _hasPerPageLayouts = [(NSArray *)[_preferences objectForKey:ARIPerPageListViewsKey] count] > 0;
+
+    // Page labels write a Page%d_ key without registering a layout, so the read
+    // path cannot go by the layout list alone. Settings changes are rare enough
+    // to afford the scan; the read path itself only sees the flag.
+    _hasPageScopedKeys = _hasPerPageLayouts;
+    if(!_hasPageScopedKeys) {
+        for(NSString *key in [_preferences persistentDomainForName:ARIPreferenceDomain]) {
+            if(![key hasPrefix:@"Page"]) continue;
+            _hasPageScopedKeys = YES;
+            break;
+        }
+    }
+
     [_boolCache removeAllObjects];
     [self _didWritePreferencesForKey:nil];
 }
