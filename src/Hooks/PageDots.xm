@@ -8,8 +8,10 @@
 #import "../Manager/ARIEditManager.h"
 
 // Long enough to read as a move rather than a jump, short enough to have
-// finished before a swipe to the next page can start
-static const NSTimeInterval kARIDotSettleDuration = 0.25;
+// finished before a swipe to the next page can start. Damped just short of
+// critical so it eases in the way the page it follows does.
+static const NSTimeInterval kARIDotSettleDuration = 0.35;
+static const CGFloat kARIDotSettleDamping = 0.86;
 
 @interface SBRootFolderView (ARIPageDotMetrics)
 @property (nonatomic, assign) SBRootFolderViewMetrics _atriaCachedMetrics;
@@ -69,7 +71,9 @@ static const NSTimeInterval kARIDotSettleDuration = 0.25;
 	self._atriaLastDotOffset = offset;
 	[UIView animateWithDuration:kARIDotSettleDuration
 	                      delay:0.0
-	                    options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState
+	     usingSpringWithDamping:kARIDotSettleDamping
+	      initialSpringVelocity:0.0
+	                    options:UIViewAnimationOptionBeginFromCurrentState
 	                 animations:^{ pageControl.frame = newFrame; }
 	                 completion:nil];
 }
