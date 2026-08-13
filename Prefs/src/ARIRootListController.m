@@ -74,9 +74,12 @@
     NSMutableDictionary *dict = [[defaults persistentDomainForName:ARIPreferenceDomain] mutableCopy]
                                     ?: [NSMutableDictionary new];
 
-    // The underscore prefix means it's an internal setting, not meant to be shared
+    // The underscore prefix means it's an internal setting, not meant to be
+    // shared. The per-page list is the exception: it is part of the layout being
+    // shared, and without it every Page%d_ value in the string is unreadable.
     for(NSString *key in [dict allKeys])
-        if([key hasPrefix:@"_"]) [dict removeObjectForKey:key];
+        if([key hasPrefix:@"_"] && ![key isEqualToString:ARIPerPageListViewsKey])
+            [dict removeObjectForKey:key];
 
     // Easier to make it json imho
     NSError *error;
@@ -120,10 +123,21 @@
     NSMutableDictionary *accepted = [NSMutableDictionary new];
     for(NSString *key in settingsDictionary) {
         if(![key isKindOfClass:[NSString class]]) continue;
-        // The underscore prefix means it's an internal setting, not meant to be shared
-        if([key hasPrefix:@"_"]) continue;
 
         id value = settingsDictionary[key];
+        // The per-page list is the one internal key worth carrying across, and
+        // it is an array of prefixes rather than a scalar
+        if([key isEqualToString:ARIPerPageListViewsKey]) {
+            if(![value isKindOfClass:[NSArray class]]) continue;
+            BOOL allStrings = YES;
+            for(id prefix in (NSArray *)value)
+                if(![prefix isKindOfClass:[NSString class]]) allStrings = NO;
+            if(allStrings) accepted[key] = value;
+            continue;
+        }
+
+        // The underscore prefix means it's an internal setting, not meant to be shared
+        if([key hasPrefix:@"_"]) continue;
         if(![value isKindOfClass:[NSString class]] && ![value isKindOfClass:[NSNumber class]]) continue;
         accepted[key] = value;
     }

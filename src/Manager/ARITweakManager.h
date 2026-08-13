@@ -9,6 +9,7 @@
 #import "../Options/ARIOption.h"
 
 static NSString *const ARIPreferenceDomain = @"me.lau.AtriaPrefs";
+static NSString *const ARIPerPageListViewsKey = @"_perPageListViews";
 
 // A drag applies on this interval and animates for exactly as long, so one step
 // finishes as the next begins. The animation is what makes the motion look

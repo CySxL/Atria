@@ -393,14 +393,14 @@ static const NSTimeInterval kARISettledDuration = 0.6;
     [self _migrateSettingFromKey:@"saveState" toKey:@"_saveState"];
 
     // Update list of per-page layout enabled list views
-    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:@"_perPageListViews"] mutableCopy];
+    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:ARIPerPageListViewsKey] mutableCopy];
     NSUInteger itemCount = [perPage count];
     if(itemCount > 0) {
         for(NSUInteger i = 0; i < itemCount; i++) {
             NSString *newValue = [NSString stringWithFormat:@"Page%@_", [perPage[i] stringByReplacingOccurrencesOfString:@"_" withString:@""]];
             [perPage replaceObjectAtIndex:i withObject:newValue];
         }
-        [self setValue:perPage forKey:@"_perPageListViews"];
+        [self setValue:perPage forKey:ARIPerPageListViewsKey];
     }
 
     // Our own domain only. -dictionaryRepresentation merges in NSGlobalDomain
@@ -776,7 +776,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     // A page may set one while the global value is still zero. The prefixes are
     // already known, so ask for those keys rather than dumping the whole domain,
     // which would carry the saved icon state with it.
-    for(NSString *prefix in (NSArray *)[_preferences objectForKey:@"_perPageListViews"]) {
+    for(NSString *prefix in (NSArray *)[_preferences objectForKey:ARIPerPageListViewsKey]) {
         if(![prefix isKindOfClass:[NSString class]]) continue;
         NSString *key = [self _pageKeyForPrefix:prefix key:@"hs_label_offset"];
         if([[_preferences objectForKey:key] floatValue] == 0) continue;
@@ -921,9 +921,9 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
         if([key hasPrefix:prefix]) [self resetValueForKey:key];
     }
 
-    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:@"_perPageListViews"] mutableCopy] ?: [NSMutableArray new];
+    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:ARIPerPageListViewsKey] mutableCopy] ?: [NSMutableArray new];
     [perPage removeObject:prefix];
-    [self setValue:perPage forKey:@"_perPageListViews"];
+    [self setValue:perPage forKey:ARIPerPageListViewsKey];
     [self reloadPreferenceState];
 
     [self updateLayoutForEditing:YES];
@@ -933,9 +933,9 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     // Freeze list view settings to what the current global config is
     NSString *prefix = [self prefixForListView:listView];
 
-    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:@"_perPageListViews"] mutableCopy] ?: [NSMutableArray new];
+    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:ARIPerPageListViewsKey] mutableCopy] ?: [NSMutableArray new];
     [perPage addObject:prefix];
-    [self setValue:perPage forKey:@"_perPageListViews"];
+    [self setValue:perPage forKey:ARIPerPageListViewsKey];
     [self reloadPreferenceState];
 
     for(NSString *key in _orderedSettingKeys) {
@@ -947,7 +947,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (BOOL)doesCustomConfigForListViewExist:(SBIconListView *)listView {
-    NSArray *perPage = [self rawValueForKey:@"_perPageListViews"];
+    NSArray *perPage = [self rawValueForKey:ARIPerPageListViewsKey];
     if(!perPage) return NO;
     return [perPage containsObject:[self prefixForListView:listView]];
 }
