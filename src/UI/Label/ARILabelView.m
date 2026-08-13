@@ -188,8 +188,11 @@ static NSUInteger _editingLabelCount = 0;
 }
 
 - (void)endTextEntry {
+    // -removeFromSuperview comes through here too, so only hand the dock back
+    // when this label is what took it away
+    BOOL wasEditing = [_textField isFirstResponder];
     [_textField resignFirstResponder];
-    [ARITweakManager presentFloatingDockIfPossible];
+    if(wasEditing) [ARITweakManager presentFloatingDockIfPossible];
     [self updateText:nil];
 }
 

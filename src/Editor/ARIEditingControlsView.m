@@ -239,10 +239,13 @@ static const NSTimeInterval kARIApplyInterval = 1.0 / 30.0;
 }
 
 - (void)endTextEntry {
+    // Reached from -removeFromSuperview and from closing the options view as
+    // well, neither of which dismissed the dock in the first place
+    BOOL wasEditing = [self.currentValueTextEntry isFirstResponder];
     [self.currentValueTextEntry resignFirstResponder];
     // Restore/update text
     [self updateCurrentText];
-    [ARITweakManager presentFloatingDockIfPossible];
+    if(wasEditing) [ARITweakManager presentFloatingDockIfPossible];
 }
 
 - (void)removeFromSuperview {
