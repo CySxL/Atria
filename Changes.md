@@ -220,3 +220,7 @@ Version 1.6.0:
 Version 1.6.1:
 - Page dots can be positioned per page, like the rest of the editor. One control serves every page, so it moves as the page settles rather than following the swipe
 - Added Hide Open Folder Background, which removes the panel an opened folder sits on
+
+Version 1.6.2:
+- Hide Open Folder Background no longer takes the folder's own icons with it. The view it was hiding is the one they sit in
+- The page dots settle on a spring rather than a fixed curve
