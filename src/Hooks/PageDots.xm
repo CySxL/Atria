@@ -6,25 +6,42 @@
 #import "Shared.h"
 #import "../Manager/ARITweakManager.h"
 
+@interface SBRootFolderView (ARIPageDotMetrics)
+@property (nonatomic, assign) SBRootFolderViewMetrics _atriaCachedMetrics;
+@property (nonatomic, assign) BOOL _atriaHasCachedMetrics;
+@end
+
 // Instead of hooking the page dots directly, we hijack the layout method
 // on the root folder view for optimal performance. Works on iOS 13-15
 %hook SBRootFolderView
+%property (nonatomic, assign) SBRootFolderViewMetrics _atriaCachedMetrics;
+%property (nonatomic, assign) BOOL _atriaHasCachedMetrics;
 
 - (void)layoutPageControlWithMetrics:(const struct SBRootFolderViewMetrics *)metrics {
-    static SBRootFolderViewMetrics cachedMetrics;
-    if(!metrics) {
-        metrics = &cachedMetrics;
+    // The editor calls this with NULL to reapply an offset. Per instance, since
+    // a second root folder view would otherwise be laid out to the first one's
+    // geometry, and a zeroed struct is not something to hand back to SpringBoard.
+    SBRootFolderViewMetrics cached;
+    if(metrics) {
+        self._atriaCachedMetrics = *metrics;
+        self._atriaHasCachedMetrics = YES;
     } else {
-        cachedMetrics = *metrics;
+        if(!self._atriaHasCachedMetrics) return;
+        cached = self._atriaCachedMetrics;
+        metrics = &cached;
     }
 
     %orig(metrics);
 
     ARITweakManager *manager = [ARITweakManager sharedInstance];
-	UIView *pageControl = [manager firmwareVersion] >= 16 ? self.scrollAccessoryView : self.pageControl;	
+	CGFloat offsetX = [manager floatValueForKey:@"pagedot_offsetX"];
+	CGFloat offsetY = [manager floatValueForKey:@"pagedot_offsetY"];
+	if(offsetX == 0 && offsetY == 0) return;
+
+	UIView *pageControl = [manager firmwareVersion] >= 16 ? self.scrollAccessoryView : self.pageControl;
     CGRect newFrame = pageControl.frame;
-	newFrame.origin.x += [manager floatValueForKey:@"pagedot_offsetX"];
-    newFrame.origin.y += [manager floatValueForKey:@"pagedot_offsetY"];
+	newFrame.origin.x += offsetX;
+    newFrame.origin.y += offsetY;
 	pageControl.frame = newFrame;
 }
 
