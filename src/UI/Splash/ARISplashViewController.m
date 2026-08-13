@@ -10,6 +10,19 @@
 // RGB: 81, 8, 126
 #define kTintColor [UIColor colorWithRed:0.32 green:0.03 blue:0.49 alpha:1.0]
 
+// Sized off the screen's own edges rather than whichever one is currently
+// horizontal, or the same device answers small in one orientation and large in
+// the other. The thresholds are the ones each of these already used upright.
+static CGFloat ARIScreenShortSide(void) {
+    CGSize size = UIScreen.mainScreen.bounds.size;
+    return fmin(size.width, size.height);
+}
+
+static CGFloat ARIScreenLongSide(void) {
+    CGSize size = UIScreen.mainScreen.bounds.size;
+    return fmax(size.width, size.height);
+}
+
 @implementation ARISplashViewController {
     UIVisualEffectView *_matEffect;
     UIImageView *_tweakIcon;
@@ -104,7 +117,7 @@
         [_matEffect.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [_matEffect.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
 
-        [_tweakIcon.widthAnchor constraintEqualToConstant:UIScreen.mainScreen.bounds.size.width < 800 ? 70 : 90],
+        [_tweakIcon.widthAnchor constraintEqualToConstant:ARIScreenShortSide() < 500 ? 70 : 90],
         [_tweakIcon.heightAnchor constraintEqualToAnchor:_tweakIcon.widthAnchor],
         [_tweakIcon.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [_tweakIcon.topAnchor constraintEqualToAnchor:self.view.topAnchor
@@ -126,7 +139,7 @@
 
         [_dismiss.widthAnchor constraintEqualToAnchor:self.view.widthAnchor
                                              constant:-100],
-        [_dismiss.heightAnchor constraintEqualToConstant:UIScreen.mainScreen.bounds.size.height < 800 ? 50 : 60],
+        [_dismiss.heightAnchor constraintEqualToConstant:ARIScreenLongSide() < 800 ? 50 : 60],
         [_dismiss.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [_dismiss.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor
                                               constant:-50],
@@ -167,14 +180,14 @@
     [entryView addSubview:label];
     [NSLayoutConstraint activateConstraints:@[
         [imageView.widthAnchor constraintEqualToAnchor:imageView.heightAnchor],
-        [imageView.heightAnchor constraintEqualToConstant:UIScreen.mainScreen.bounds.size.width < 375 ? 25 : 40],
+        [imageView.heightAnchor constraintEqualToConstant:ARIScreenShortSide() < 375 ? 25 : 40],
         [imageView.leadingAnchor constraintEqualToAnchor:entryView.leadingAnchor
                                                 constant:5],
         [imageView.centerYAnchor constraintEqualToAnchor:entryView.centerYAnchor],
     ]];
 
     label.text = text;
-    label.font = [UIFont systemFontOfSize:UIScreen.mainScreen.bounds.size.width < 375 ? 8 : 12];
+    label.font = [UIFont systemFontOfSize:ARIScreenShortSide() < 375 ? 8 : 12];
     label.numberOfLines = 0;
     label.translatesAutoresizingMaskIntoConstraints = NO;
     [label sizeToFit];
