@@ -203,3 +203,9 @@ Version 1.5.8:
 Version 1.5.9:
 - The dock label offset moves the labels again. The dock's icons were being looked up through an ivar that has been empty since iOS 16, so nothing was ever told to move
 - Dragging a slider in the editor is smooth again. 1.5.7 took away the animation that was doing the interpolation along with the ones that were piling up
+
+Version 1.5.10:
+- Page labels survive an import again, and editing one saves. The list of pages carrying their own settings was treated as private and dropped from the settings string, which left every value belonging to a page unreadable
+- The dock label offset moves labels that were rebuilt a moment earlier, rather than waiting for the next full layout
+- The keyboard can put a forced floating dock away again while a page label is being typed into
+- The floating dock background alpha follows the slider again instead of waiting for a lock and unlock
