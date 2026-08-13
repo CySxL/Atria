@@ -24,7 +24,7 @@
 @end
 
 @interface SBFolderBackgroundView : UIView
-@property (nonatomic, assign) BOOL _atriaIsOpenFolderBackground;
+- (BOOL)_atriaIsOpenFolderBackground;
 @end
 
 @interface SBSApplicationShortcutIcon : NSObject
@@ -416,30 +416,32 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 %end
 
-// The panel an opened folder sits on. Its own group because the floating kind of
-// folder only exists from iOS 14.
+// The panel an opened folder sits on, which holds a single MTMaterialView. Its
+// own group because the floating kind of folder only exists from iOS 14.
 %group FloatyFolderBackground
 %hook SBFolderBackgroundView
-%property (nonatomic, assign) BOOL _atriaIsOpenFolderBackground;
 
-- (void)didMoveToSuperview {
+// Asked each time rather than recorded when the view is added, because the
+// hierarchy above is not joined up yet at that point. The homescreen's folder
+// icon draws a miniature out of the same classes, so the test is the immediate
+// parent plus the scroll view only a folder that opens has.
+%new
+- (BOOL)_atriaIsOpenFolderBackground {
+	UIView *clip = self.superview;
+	if(![clip isKindOfClass:objc_getClass("SBFloatyFolderBackgroundClipView")]) return NO;
+	for(UIView *sibling in clip.subviews)
+		if([sibling isKindOfClass:objc_getClass("SBFloatyFolderScrollView")]) return YES;
+	return NO;
+}
+
+- (void)layoutSubviews {
 	%orig;
-	// SBRootFolderView is an SBFolderView as well, and the homescreen carries one
-	// of these behind it, so only the opened folder's own background is taken.
-	self._atriaIsOpenFolderBackground = NO;
-	UIView *view = self.superview;
-	for(NSInteger depth = 0; depth < 4 && view; depth++, view = view.superview) {
-		if(![view isKindOfClass:objc_getClass("SBFloatyFolderView")]) continue;
-		self._atriaIsOpenFolderBackground = YES;
-		break;
-	}
-
-	if(self._atriaIsOpenFolderBackground && [[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"])
+	if([[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"] && [self _atriaIsOpenFolderBackground])
 		self.hidden = YES;
 }
 
 - (void)setHidden:(BOOL)hidden {
-	if(self._atriaIsOpenFolderBackground && [[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"]) {
+	if(!hidden && [[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"] && [self _atriaIsOpenFolderBackground]) {
 		%orig(YES);
 		return;
 	}
@@ -504,7 +506,8 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 		%init();
 
 		if(objc_getClass("SBIconLabelAccessoryView")) %init(LabelOffset);
-		if(objc_getClass("SBFolderBackgroundView") && objc_getClass("SBFloatyFolderView"))
+		if(objc_getClass("SBFolderBackgroundView") && objc_getClass("SBFloatyFolderBackgroundClipView")
+		   && objc_getClass("SBFloatyFolderScrollView"))
 			%init(FloatyFolderBackground);
 	}
 }
