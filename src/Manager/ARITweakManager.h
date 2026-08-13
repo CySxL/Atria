@@ -250,6 +250,7 @@ typedef struct SBRootFolderViewMetrics {
 + (instancetype)sharedInstance;
 + (UIInterfaceOrientation)currentDeviceOrientation;
 + (BOOL)isUsingFloatingDock;
++ (BOOL)shouldTouchFloatingDockViews;
 + (void)dismissFloatingDockIfPossible;
 + (void)presentFloatingDockIfPossible;
 @end

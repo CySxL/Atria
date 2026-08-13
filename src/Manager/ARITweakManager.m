@@ -475,7 +475,7 @@
     void (^applyLayout)() = ^void() {
         if(forDock) {
             // Layout dock icons and set alpha
-            if(![[self class] isUsingFloatingDock]) {
+            if(![[self class] shouldTouchFloatingDockViews]) {
                 SBIconListView *listView = [self _dockListView];
                 [[rootFolderView dockView] _atriaUpdateDockForSettingsChanged];
                 [self _refreshIconViewsInListView:listView];
@@ -568,7 +568,7 @@
     for(SBIconListView *listView in [self allRootListViews])
         [self _refreshIconViewsInListView:listView updatingDropShadow:YES];
 
-    if(![[self class] isUsingFloatingDock]) {
+    if(![[self class] shouldTouchFloatingDockViews]) {
         [self _refreshIconViewsInListView:[self _dockListView] updatingDropShadow:YES];
         [[[self rootFolderView] dockView] _atriaUpdateDockForSettingsChanged];
     } else {
@@ -607,7 +607,7 @@
         [self relayoutEntireIconModel];
     }
 
-    if([[self class] isUsingFloatingDock]) {
+    if([[self class] shouldTouchFloatingDockViews]) {
         // Update floating dock background alpha to fix a bug specific to iOS 14
         SBFloatingDockController *fdController = [objc_getClass("SBFloatingDockController") _atriaSharedInstance];
         [[[fdController floatingDockViewController] dockView] _atriaUpdateDockForSettingsChanged];
@@ -909,14 +909,24 @@
     return [objc_getClass("SBFloatingDockController") isFloatingDockSupported];
 }
 
+// forceFloatingDock makes +isFloatingDockSupported answer YES on iPhone, which
+// is all SpringBoard's own gestures need. Its view hierarchy is another matter:
+// reaching into it there builds a dock the phone has no geometry for, and the
+// App Library then zooms to that dock's library pod on every transition until
+// the next respring. The floating dock is an iPad feature, so keep the views
+// to iPads however the flag is set.
++ (BOOL)shouldTouchFloatingDockViews {
+    return [self isUsingFloatingDock] && [[self sharedInstance] isDeviceIPad];
+}
+
 + (void)dismissFloatingDockIfPossible {
-    if([self isUsingFloatingDock]) {
+    if([self shouldTouchFloatingDockViews]) {
         [[objc_getClass("SBFloatingDockController") _atriaSharedInstance] _dismissFloatingDockIfPresentedAnimated:YES completionHandler:nil];
     }
 }
 
 + (void)presentFloatingDockIfPossible {
-    if([self isUsingFloatingDock]) {
+    if([self shouldTouchFloatingDockViews]) {
         [[objc_getClass("SBFloatingDockController") _atriaSharedInstance] _presentFloatingDockIfDismissedAnimated:YES completionHandler:nil];
     }
 }
