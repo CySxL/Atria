@@ -199,3 +199,7 @@ Version 1.5.7:
 Version 1.5.8:
 - Turning off page labels, or closing the editor, no longer makes the floating dock appear on its own
 - With Force Floating Dock on, the App Library no longer collapses into the top corner of the screen after any settings change. The floating dock's own views are left alone on iPhone, where there is no real dock to style
+
+Version 1.5.9:
+- The dock label offset moves the labels again. The dock's icons were being looked up through an ivar that has been empty since iOS 16, so nothing was ever told to move
+- Dragging a slider in the editor is smooth again. 1.5.7 took away the animation that was doing the interpolation along with the ones that were piling up
