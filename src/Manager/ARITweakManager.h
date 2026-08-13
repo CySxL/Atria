@@ -174,6 +174,7 @@ typedef struct SBRootFolderViewMetrics {
 @interface SBFloatingDockView : UIView
 @property (nonatomic, strong) UIView *backgroundView;
 - (void)_atriaUpdateDockForSettingsChanged;
++ (SBFloatingDockView *)_atriaPresentedDockView;
 @end
 
 @interface SBFloatingDockViewController : UIViewController

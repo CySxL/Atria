@@ -510,12 +510,14 @@ static const NSTimeInterval kARISettledDuration = 0.6;
                 [[fdController userIconListView] layoutIconsNow];
                 [[fdController suggestionsIconListView] layoutIconsNow];
                 SBFloatingDockViewController *fdvc = [fdController floatingDockViewController];
-                // Fix for library pod icon
+                // Fix for library pod icon. This one writes a transform onto the
+                // pod the App Library zooms from, so it stays on iPads.
                 if([fdvc respondsToSelector:@selector(libraryPodIconView)])
                     [[fdvc libraryPodIconView] _atriaUpdateIconContentScale];
-                // Update dock background
-                [[fdvc dockView] _atriaUpdateDockForSettingsChanged];
             }
+            // The background alpha is a plain opacity write, so a forced dock on
+            // iPhone gets it too. Only reached once SpringBoard has built one.
+            [self _updateFloatingDockBackground];
         }
 
         if(forRoot) {
@@ -583,6 +585,13 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return listView;
 }
 
+// A plain opacity write, so a forced dock on iPhone gets it too. Goes through
+// the view SpringBoard already presented rather than the controller, which
+// would build one where none belongs.
+- (void)_updateFloatingDockBackground {
+    [[objc_getClass("SBFloatingDockView") _atriaPresentedDockView] _atriaUpdateDockForSettingsChanged];
+}
+
 // Icon views only consult the label setting when they are added to a list, so
 // nudge the existing ones when the dock label switch is toggled
 - (void)_refreshIconView:(SBIconView *)iconView {
@@ -626,8 +635,8 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     } else {
         SBFloatingDockController *fdController = [objc_getClass("SBFloatingDockController") _atriaSharedInstance];
         [self _refreshIconViewsInListView:[fdController userIconListView] updatingDropShadow:YES];
-        [[[fdController floatingDockViewController] dockView] _atriaUpdateDockForSettingsChanged];
     }
+    [self _updateFloatingDockBackground];
 }
 
 // This lags the device somewhat, so limit this as much as possible!
@@ -659,11 +668,8 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
         [self relayoutEntireIconModel];
     }
 
-    if([[self class] shouldTouchFloatingDockViews]) {
-        // Update floating dock background alpha to fix a bug specific to iOS 14
-        SBFloatingDockController *fdController = [objc_getClass("SBFloatingDockController") _atriaSharedInstance];
-        [[[fdController floatingDockViewController] dockView] _atriaUpdateDockForSettingsChanged];
-    }
+    // Fixes the floating dock background alpha on iOS 14
+    [self _updateFloatingDockBackground];
 }
 
 - (SBRootFolderView *)rootFolderView {

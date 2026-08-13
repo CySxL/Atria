@@ -130,7 +130,17 @@ static SBFloatingDockController *fdController;
 %end
 
 
+// Only ever the view SpringBoard itself put on screen. Asking the controller
+// for one instead builds the whole floating dock on a device that has no
+// business having it, which is what the App Library then zoomed towards.
+static __weak SBFloatingDockView *presentedFloatingDockView;
+
 %hook SBFloatingDockView
+
+%new
++ (SBFloatingDockView *)_atriaPresentedDockView {
+    return presentedFloatingDockView;
+}
 
 %new
 - (void)_atriaUpdateDockForSettingsChanged {
@@ -139,6 +149,7 @@ static SBFloatingDockController *fdController;
 
 - (void)didMoveToSuperview {
     %orig;
+    if(self.superview) presentedFloatingDockView = self;
     [self _atriaUpdateDockForSettingsChanged];
 }
 
