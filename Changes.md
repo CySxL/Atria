@@ -186,3 +186,16 @@ Version 1.5.5:
 
 Version 1.5.6:
 - Reverted 1.5.5. Rebuilding the dock label repeatedly is what fades it in on unlock, and skipping the repeats made it appear abruptly instead
+
+Version 1.5.7:
+- A saved icon layout of the wrong shape is now discarded instead of being handed to SpringBoard, where it could stop the homescreen coming up at all
+- Settings changes apply again when Layout Modifications is turned off, and several changes at once now cost one relayout rather than one each
+- Dragging a slider in the editor no longer stacks an animation per touch, which is what made it stutter and warm the device
+- Scrolling an icon into view works again on the rest of the homescreen; the page label fix now only holds it back while a label is being typed in
+- Page labels size their own space, so large text no longer overlaps the first row of icons
+- A colour setting that isn't a valid hex string falls back to white instead of picking something at random
+- The dock keeps its background alpha through a dark or light mode switch
+
+Version 1.5.8:
+- Turning off page labels, or closing the editor, no longer makes the floating dock appear on its own
+- With Force Floating Dock on, the App Library no longer collapses into the top corner of the screen after any settings change. The floating dock's own views are left alone on iPhone, where there is no real dock to style
