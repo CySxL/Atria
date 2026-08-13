@@ -596,7 +596,11 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 // nudge the existing ones when the dock label switch is toggled
 - (void)_refreshIconView:(SBIconView *)iconView {
     if(!iconView) return;
-    [iconView setAllowsLabelArea:iconView.allowsLabelArea];
+    // Setting this rebuilds the label, and a rebuilt label has no frame for the
+    // offset to move until the next layout pass. Only drive it when the answer
+    // has actually changed; SpringBoard's own calls are untouched.
+    BOOL allows = [iconView _atriaEffectiveAllowsLabelArea:iconView.allowsLabelArea];
+    if(allows != iconView.allowsLabelArea) [iconView setAllowsLabelArea:allows];
     [iconView _atriaApplyDockLabelOffset];
 }
 

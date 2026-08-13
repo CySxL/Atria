@@ -209,3 +209,6 @@ Version 1.5.10:
 - The dock label offset moves labels that were rebuilt a moment earlier, rather than waiting for the next full layout
 - The keyboard can put a forced floating dock away again while a page label is being typed into
 - The floating dock background alpha follows the slider again instead of waiting for a lock and unlock
+
+Version 1.5.11:
+- The dock label offset follows the slider as it moves. Refreshing an icon rebuilt its label first, and a rebuilt label has no position to shift until the next layout pass

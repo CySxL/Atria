@@ -142,28 +142,34 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	return orig;
 }
 
-- (void)setAllowsLabelArea:(BOOL)allows {
+// Split out so a refresh can ask what the answer would be without setting it.
+// The setter tears the label down and builds a new one, and the new one has no
+// frame yet, so calling it needlessly is what stopped a label offset showing
+// until the next time SpringBoard laid the dock out.
+%new
+- (BOOL)_atriaEffectiveAllowsLabelArea:(BOOL)allows {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
-	if([manager isShyLabelsInstalled]) {
-		%orig(allows);
-		return;
-	}
+	if([manager isShyLabelsInstalled]) return allows;
 
 	if(IconIsInRoot(self)) {
-    	if([manager boolValueForKey:@"hideLabels"]) allows = NO;
+		if([manager boolValueForKey:@"hideLabels"]) return NO;
 	} else if(IconIsInAppLibrary(self) || IconIsInAppLibraryPod(self)) {
-		if([manager boolValueForKey:@"hideLabelsAppLibrary"]) allows = NO;
+		if([manager boolValueForKey:@"hideLabelsAppLibrary"]) return NO;
 	} else if(IconIsInFolder(self)) {
-		if([manager boolValueForKey:@"hideLabelsFolders"]) allows = NO;
+		if([manager boolValueForKey:@"hideLabelsFolders"]) return NO;
 	} else if(IconIsInAnyDock(self)) {
 		// The dock never labels icons on its own, so drive it both ways to keep
 		// the switch reversible without a respring
-		allows = [manager boolValueForKey:@"showDockLabels"];
-		// It reconfigures the dock in bursts and asks for no label every time.
-		// Answering each of those rebuilds the label repeatedly, which is what
-		// fades it in on unlock, so the repeats are left alone deliberately.
+		return [manager boolValueForKey:@"showDockLabels"];
 	}
-	%orig(allows);
+	return allows;
+}
+
+- (void)setAllowsLabelArea:(BOOL)allows {
+	// SpringBoard reconfigures the dock in bursts and asks for no label every
+	// time. Answering each of those rebuilds the label repeatedly, which is what
+	// fades it in on unlock, so the repeats are left alone deliberately.
+	%orig([self _atriaEffectiveAllowsLabelArea:allows]);
 }
 
 - (void)_updateIconImageViewAnimated:(BOOL)arg1 {
