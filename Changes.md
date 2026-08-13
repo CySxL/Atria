@@ -213,5 +213,6 @@ Version 1.5.10:
 Version 1.5.11:
 - The dock label offset follows the slider as it moves. Refreshing an icon rebuilt its label first, and a rebuilt label has no position to shift until the next layout pass
 
-Version 1.5.12:
+Version 1.6.0:
 - The dock label offset follows the slider again with Force Floating Dock on. 1.5.8 narrowed a check meant for one problem call, and it took the dock's own icons with it
+- Everything from 1.5.7 through 1.5.12, tested on device: the saved icon layout is checked before SpringBoard is given it, settings apply with the layout hooks off, dragging a slider no longer heats the phone, scrolling an icon into view works across the homescreen again, page labels size themselves and survive an import, and colours fall back to white instead of to whatever was on the stack
