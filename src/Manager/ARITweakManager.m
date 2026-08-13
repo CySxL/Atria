@@ -497,7 +497,9 @@ static const NSTimeInterval kARISettledDuration = 0.6;
     void (^applyLayout)() = ^void() {
         if(forDock) {
             // Layout dock icons and set alpha
-            if(![[self class] shouldTouchFloatingDockViews]) {
+            // Which branch holds the dock's icons, not which views are safe to
+            // touch. With the dock forced on, they live under the controller.
+            if(![[self class] isUsingFloatingDock]) {
                 SBIconListView *listView = [self _dockListView];
                 [[rootFolderView dockView] _atriaUpdateDockForSettingsChanged];
                 [self _refreshIconViewsInListView:listView];
@@ -509,11 +511,13 @@ static const NSTimeInterval kARISettledDuration = 0.6;
                 [self _refreshIconViewsInListView:[fdController suggestionsIconListView]];
                 [[fdController userIconListView] layoutIconsNow];
                 [[fdController suggestionsIconListView] layoutIconsNow];
-                SBFloatingDockViewController *fdvc = [fdController floatingDockViewController];
-                // Fix for library pod icon. This one writes a transform onto the
-                // pod the App Library zooms from, so it stays on iPads.
-                if([fdvc respondsToSelector:@selector(libraryPodIconView)])
-                    [[fdvc libraryPodIconView] _atriaUpdateIconContentScale];
+                // Fix for library pod icon. This one alone writes a transform onto
+                // the pod the App Library zooms from, so it stays on iPads.
+                if([[self class] shouldTouchFloatingDockViews]) {
+                    SBFloatingDockViewController *fdvc = [fdController floatingDockViewController];
+                    if([fdvc respondsToSelector:@selector(libraryPodIconView)])
+                        [[fdvc libraryPodIconView] _atriaUpdateIconContentScale];
+                }
             }
             // The background alpha is a plain opacity write, so a forced dock on
             // iPhone gets it too. Only reached once SpringBoard has built one.
@@ -633,7 +637,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     for(SBIconListView *listView in [self allRootListViews])
         [self _refreshIconViewsInListView:listView updatingDropShadow:YES];
 
-    if(![[self class] shouldTouchFloatingDockViews]) {
+    if(![[self class] isUsingFloatingDock]) {
         [self _refreshIconViewsInListView:[self _dockListView] updatingDropShadow:YES];
         [[[self rootFolderView] dockView] _atriaUpdateDockForSettingsChanged];
     } else {
@@ -987,12 +991,11 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return [objc_getClass("SBFloatingDockController") isFloatingDockSupported];
 }
 
-// forceFloatingDock makes +isFloatingDockSupported answer YES on iPhone, which
-// is all SpringBoard's own gestures need. Its view hierarchy is another matter:
-// reaching into it there builds a dock the phone has no geometry for, and the
-// App Library then zooms to that dock's library pod on every transition until
-// the next respring. The floating dock is an iPad feature, so keep the views
-// to iPads however the flag is set.
+// Guards the one call that was measured to cause harm: scaling the library pod
+// writes a transform onto the view the App Library zooms from, and with the dock
+// forced on an iPhone that left every transition collapsing into the top corner
+// until the next respring. Everything else about the forced dock is real and
+// must not be withheld, since that is where its icons live.
 + (BOOL)shouldTouchFloatingDockViews {
     return [self isUsingFloatingDock] && [[self sharedInstance] isDeviceIPad];
 }
