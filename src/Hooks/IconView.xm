@@ -23,6 +23,9 @@
 - (void)_atriaReapplyLabelOffset;
 @end
 
+@interface SBFloatyFolderBackgroundClipView : UIView
+@end
+
 @interface SBSApplicationShortcutIcon : NSObject
 @end
 
@@ -412,6 +415,28 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 %end
 
+// The panel an open folder sits on. Its own group because the class is only
+// there from iOS 14, where the folder became the floating kind.
+%group FloatyFolderBackground
+%hook SBFloatyFolderBackgroundClipView
+
+- (void)setHidden:(BOOL)hidden {
+	if([[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"]) {
+		%orig(YES);
+		return;
+	}
+	%orig(hidden);
+}
+
+- (void)didMoveToSuperview {
+	%orig;
+	if([[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"])
+		self.hidden = YES;
+}
+
+%end
+%end
+
 // Launching or backgrounding an app makes SpringBoard rebuild the label area,
 // which replaces this view and drops the offset set on the one before it
 // A transform leaves the frame undefined, and SpringBoard writes a frame here
@@ -467,5 +492,6 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 		%init();
 
 		if(objc_getClass("SBIconLabelAccessoryView")) %init(LabelOffset);
+		if(objc_getClass("SBFloatyFolderBackgroundClipView")) %init(FloatyFolderBackground);
 	}
 }
