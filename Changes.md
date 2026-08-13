@@ -212,3 +212,6 @@ Version 1.5.10:
 
 Version 1.5.11:
 - The dock label offset follows the slider as it moves. Refreshing an icon rebuilt its label first, and a rebuilt label has no position to shift until the next layout pass
+
+Version 1.5.12:
+- The dock label offset follows the slider again with Force Floating Dock on. 1.5.8 narrowed a check meant for one problem call, and it took the dock's own icons with it
