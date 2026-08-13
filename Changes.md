@@ -224,3 +224,6 @@ Version 1.6.1:
 Version 1.6.2:
 - Hide Open Folder Background no longer takes the folder's own icons with it. The view it was hiding is the one they sit in
 - The page dots settle on a spring rather than a fixed curve
+
+Version 1.6.3:
+- Hide Open Folder Background works, and stops taking the background off the folder icon on the homescreen. Both are drawn from the same classes, so it now goes by the view the background sits in rather than by what it can find above itself
