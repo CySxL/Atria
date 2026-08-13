@@ -16,6 +16,7 @@
     NSLayoutConstraint *_labelTopAnchor;
     NSLayoutConstraint *_labelLeadingAnchor;
     NSLayoutConstraint *_labelTrailingAnchor;
+    NSLayoutConstraint *_labelHeightAnchor;
 }
 
 - (instancetype)init {
@@ -90,6 +91,7 @@
 
     // Get text size
     CGFloat textSize = [manager floatValueForKey:@"label_textSize" forListView:superv];
+    _labelHeightAnchor.constant = ARIPageLabelHeightForTextSize(textSize);
 
     // Load font
     CTFontDescriptorRef cfdesc = [[self class] getCustomFontDescriptorOrNull];
@@ -180,14 +182,17 @@
     [self updateText:nil];
 
     // Setup initial anchors
+    CGFloat textSize = [[ARITweakManager sharedInstance] floatValueForKey:@"label_textSize"
+                                                              forListView:(SBIconListView *)self.superview];
     _labelTopAnchor = [self.topAnchor constraintEqualToAnchor:self.superview.topAnchor];
     _labelLeadingAnchor = [self.leadingAnchor constraintEqualToAnchor:self.superview.leadingAnchor];
     _labelTrailingAnchor = [self.trailingAnchor constraintEqualToAnchor:self.superview.trailingAnchor];
+    _labelHeightAnchor = [self.heightAnchor constraintEqualToConstant:ARIPageLabelHeightForTextSize(textSize)];
 
     [NSLayoutConstraint activateConstraints:@[
         _labelTopAnchor,
         _labelLeadingAnchor,
-        [self.heightAnchor constraintEqualToConstant:50],
+        _labelHeightAnchor,
         _labelTrailingAnchor
     ]];
 }

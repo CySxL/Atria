@@ -114,7 +114,8 @@ static BOOL didLaunchSB = NO;
 		CGFloat spaceY = [manager floatValueForKey:@"hs_spacing_y" forListView:self];
 
 		// Add spacing for page label
-		if(showPageLabel) topInset += 60;
+		if(showPageLabel)
+			topInset += ARIPageLabelReservedSpaceForTextSize([manager floatValueForKey:@"label_textSize" forListView:self]);
 
 		// Set layout insets
 		UIEdgeInsets origPortrait = config.portraitLayoutInsets;
