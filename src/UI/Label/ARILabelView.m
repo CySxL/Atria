@@ -124,6 +124,8 @@
     } else if(![manager boolValueForKey:@"pageLabelShadow"] && _textField.layer.shadowOpacity > 0.0) {
         _textField.layer.shadowOpacity = 0.0F;
         _textField.layer.shadowRadius = 0.0F;
+        // Left on, the text keeps paying for an offscreen pass every time it changes
+        _textField.layer.shouldRasterize = NO;
     }
 
     [self updateAnchors];
