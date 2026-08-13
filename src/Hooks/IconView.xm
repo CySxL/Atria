@@ -23,7 +23,8 @@
 - (void)_atriaReapplyLabelOffset;
 @end
 
-@interface SBFloatyFolderBackgroundClipView : UIView
+@interface SBFolderBackgroundView : UIView
+@property (nonatomic, assign) BOOL _atriaIsOpenFolderBackground;
 @end
 
 @interface SBSApplicationShortcutIcon : NSObject
@@ -415,23 +416,34 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 %end
 
-// The panel an open folder sits on. Its own group because the class is only
-// there from iOS 14, where the folder became the floating kind.
+// The panel an opened folder sits on. Its own group because the floating kind of
+// folder only exists from iOS 14.
 %group FloatyFolderBackground
-%hook SBFloatyFolderBackgroundClipView
+%hook SBFolderBackgroundView
+%property (nonatomic, assign) BOOL _atriaIsOpenFolderBackground;
+
+- (void)didMoveToSuperview {
+	%orig;
+	// SBRootFolderView is an SBFolderView as well, and the homescreen carries one
+	// of these behind it, so only the opened folder's own background is taken.
+	self._atriaIsOpenFolderBackground = NO;
+	UIView *view = self.superview;
+	for(NSInteger depth = 0; depth < 4 && view; depth++, view = view.superview) {
+		if(![view isKindOfClass:objc_getClass("SBFloatyFolderView")]) continue;
+		self._atriaIsOpenFolderBackground = YES;
+		break;
+	}
+
+	if(self._atriaIsOpenFolderBackground && [[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"])
+		self.hidden = YES;
+}
 
 - (void)setHidden:(BOOL)hidden {
-	if([[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"]) {
+	if(self._atriaIsOpenFolderBackground && [[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"]) {
 		%orig(YES);
 		return;
 	}
 	%orig(hidden);
-}
-
-- (void)didMoveToSuperview {
-	%orig;
-	if([[ARITweakManager sharedInstance] boolValueForKey:@"hideFolderBackground"])
-		self.hidden = YES;
 }
 
 %end
@@ -492,6 +504,7 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 		%init();
 
 		if(objc_getClass("SBIconLabelAccessoryView")) %init(LabelOffset);
-		if(objc_getClass("SBFloatyFolderBackgroundClipView")) %init(FloatyFolderBackground);
+		if(objc_getClass("SBFolderBackgroundView") && objc_getClass("SBFloatyFolderView"))
+			%init(FloatyFolderBackground);
 	}
 }
