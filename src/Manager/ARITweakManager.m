@@ -32,7 +32,7 @@ static const NSTimeInterval kARISettledDuration = 0.6;
     NSMapTable *_listViewModelMap;
     NSMutableDictionary<NSNumber *, NSString *> *_prefixCache;
     NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, NSString *> *> *_pageKeyCache;
-    NSMutableDictionary<NSString *, NSNumber *> *_boolCache;
+    NSMutableDictionary<NSString *, id> *_valueCache;
     BOOL _hasPerPageLayouts;
     BOOL _hasPageScopedKeys;
     BOOL _labelOffsetStateValid;
@@ -67,7 +67,7 @@ static const NSTimeInterval kARISettledDuration = 0.6;
         _listViewModelMap = [NSMapTable mapTableWithKeyOptions:NSPointerFunctionsWeakMemory valueOptions:NSPointerFunctionsWeakMemory];
         _prefixCache = [NSMutableDictionary new];
         _pageKeyCache = [NSMutableDictionary new];
-        _boolCache = [NSMutableDictionary new];
+        _valueCache = [NSMutableDictionary new];
 
         // Create settings
         _orderedSettingKeys = [[NSMutableOrderedSet alloc] initWithCapacity:50];
@@ -752,23 +752,25 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return (int)[[self rawValueForKey:key] integerValue];
 }
 
-// -[SBIconBadgeView alpha] and the label and shadow hooks ask for these on
-// every render pass, and a defaults lookup is far dearer than a dictionary hit
 - (BOOL)boolValueForKey:(NSString *)key {
-    NSNumber *cached = _boolCache[key];
-    if(cached) return [cached boolValue];
-
-    BOOL value = [[self rawValueForKey:key] boolValue];
-    _boolCache[key] = @(value);
-    return value;
+    return [[self rawValueForKey:key] boolValue];
 }
 
 - (float)floatValueForKey:(NSString *)key {
     return [[self rawValueForKey:key] floatValue];
 }
 
+// Every typed accessor comes through here, and -[SBIconBadgeView alpha], the
+// label offsets and the shadow hooks ask on every render pass, where a defaults
+// lookup is far dearer than a dictionary hit. A key with nothing stored and no
+// registered default is remembered as NSNull so it is not asked for twice.
 - (id)rawValueForKey:(NSString *)key {
-    return [_preferences objectForKey:key] ?: [_optionsRegistry objectForKey:key].defaultValue;
+    id cached = _valueCache[key];
+    if(cached) return cached == [NSNull null] ? nil : cached;
+
+    id value = [_preferences objectForKey:key] ?: [_optionsRegistry objectForKey:key].defaultValue;
+    _valueCache[key] = value ?: [NSNull null];
+    return value;
 }
 
 // The flags below are sticky, so they only ever need to notice an offset
@@ -835,7 +837,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     } else {
         if(![val isEqual:[_preferences objectForKey:key]])
             [_preferences setObject:val forKey:key];
-        [_boolCache removeObjectForKey:key];
+        [_valueCache removeObjectForKey:key];
         [self _didWritePreferencesForKey:key];
     }
 }
@@ -845,13 +847,13 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 // page, which costs more than the write it is trying to avoid.
 - (void)setRawValue:(id)val forKey:(NSString *)key {
     [_preferences setObject:val forKey:key];
-    [_boolCache removeObjectForKey:key];
+    [_valueCache removeObjectForKey:key];
     [self _didWritePreferencesForKey:key];
 }
 
 - (void)resetValueForKey:(NSString *)key {
     [_preferences removeObjectForKey:key];
-    [_boolCache removeObjectForKey:key];
+    [_valueCache removeObjectForKey:key];
     [self _didWritePreferencesForKey:key];
 }
 
@@ -870,7 +872,9 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 
     NSString *prefix = [self prefixForListView:list];
     if(![prefix length]) return nil;
-    return [_preferences objectForKey:[self _pageKeyForPrefix:prefix key:key]];
+    // Page keys are not registered, so the registry fallback in there is nil and
+    // this keeps the stored value only, which is what the callers below expect
+    return [self rawValueForKey:[self _pageKeyForPrefix:prefix key:key]];
 }
 
 - (int)intValueForKey:(NSString *)key forListView:(SBIconListView *)list {
@@ -940,7 +944,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
         }
     }
 
-    [_boolCache removeAllObjects];
+    [_valueCache removeAllObjects];
     [self _didWritePreferencesForKey:nil];
 }
 
@@ -967,13 +971,14 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:ARIPerPageListViewsKey] mutableCopy] ?: [NSMutableArray new];
     [perPage addObject:prefix];
     [self setValue:perPage forKey:ARIPerPageListViewsKey];
-    [self reloadPreferenceState];
 
+    // These go straight into the domain, so the reload that clears the read
+    // cache has to come after them, not before
     for(NSString *key in _orderedSettingKeys) {
         [_preferences setObject:[self rawValueForKey:key]
                          forKey:[NSString stringWithFormat:@"%@%@", prefix, key]];
     }
-    [self _didWritePreferencesForKey:nil];
+    [self reloadPreferenceState];
     [self updateLayoutForEditing:YES];
 }
 
