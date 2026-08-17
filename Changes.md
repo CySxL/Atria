@@ -227,3 +227,7 @@ Version 1.6.2:
 
 Version 1.6.3:
 - Hide Open Folder Background works, and stops taking the background off the folder icon on the homescreen. Both are drawn from the same classes, so it now goes by the view the background sits in rather than by what it can find above itself
+
+Version 1.6.4:
+- The homescreen stops rebuilding its layout every time SpringBoard asks for one. Nothing checked whether any of the settings behind it had moved, so a page scroll or an unlock paid for a rebuild that produced the same result, which is what the stutter in low power mode was
+- Settings are read from a cache instead of from preferences on every icon, every label and every render pass
