@@ -17,6 +17,48 @@ static BOOL didLaunchSB = NO;
 - (SBIconListFlowExtendedLayout *)layoutForIconLocation:(NSString *)location;
 @end
 
+// Everything the root layout and its views are built from. SpringBoard asks for
+// a relayout far more often than any of these change, so the rebuild compares
+// them and allocates only when one moved. Anything read in the root branch of
+// -_atriaUpdateLayoutCache has to be in here or it will stop taking effect.
+typedef struct {
+	BOOL valid;
+	BOOL isFirstIconList;
+	BOOL showPageLabel;
+	BOOL showBackground;
+	BOOL disableTapGesture;
+	NSUInteger cols;
+	NSUInteger rows;
+	CGSize bounds;
+	CGFloat topOffset;
+	CGFloat leftOffset;
+	CGFloat topInset;
+	CGFloat bottomInset;
+	CGFloat leftInset;
+	CGFloat rightInset;
+	CGFloat spaceX;
+	CGFloat spaceY;
+	CGFloat textSize;
+	UIEdgeInsets origPortrait;
+	UIEdgeInsets origLandscape;
+} ARIRootLayoutInputs;
+
+@interface SBIconListView (ARIRootLayout)
+@property (nonatomic, assign) ARIRootLayoutInputs _atriaLayoutInputs;
+@end
+
+// The view checks catch a label or background taken out of the hierarchy while
+// the settings behind it stayed the same, which the values alone cannot see.
+static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayoutInputs inputs) {
+	ARIRootLayoutInputs previous = listView._atriaLayoutInputs;
+	if(!previous.valid || memcmp(&previous, &inputs, sizeof(inputs)) != 0) return NO;
+	if(!listView._atriaCachedLayout) return NO;
+	if(inputs.showBackground != (listView._atriaBackground.superview != nil)) return NO;
+	if(inputs.showPageLabel != (listView._atriaPageLabel.superview != nil)) return NO;
+	if(inputs.disableTapGesture == (listView._atriaTap != nil)) return NO;
+	return YES;
+}
+
 %hook SBIconListView
 %property (nonatomic, strong) ARILabelView *_atriaPageLabel;
 %property (nonatomic, strong) ARIBackgroundView *_atriaBackground;
@@ -24,6 +66,7 @@ static BOOL didLaunchSB = NO;
 %property (nonatomic, strong) SBIconListFlowExtendedLayout *_atriaCachedLayout;
 %property (nonatomic, strong) SBIconListFlowExtendedLayout *_originalLayout;
 %property (nonatomic, assign) BOOL _atriaNeedsLayout;
+%property (nonatomic, assign) ARIRootLayoutInputs _atriaLayoutInputs;
 
 %new
 - (void)_atriaBeginEditing {
@@ -75,14 +118,47 @@ static BOOL didLaunchSB = NO;
 		// Checks if the icon list is actually in the root views
 		BOOL isInRootViews = [[manager allRootListViews] containsObject:self];
 		BOOL isFirstIconList = [manager firstIconListView] == self;
-		BOOL showPageLabel = (isFirstIconList && [manager boolValueForKey:@"showWelcome"]) || (isInRootViews && [manager boolValueForKey:@"showPageLabels"]);
+
+		ARIRootLayoutInputs inputs;
+		memset(&inputs, 0, sizeof(inputs));
+		inputs.valid = YES;
+		inputs.isFirstIconList = isFirstIconList;
+		inputs.showPageLabel = (isFirstIconList && [manager boolValueForKey:@"showWelcome"]) || (isInRootViews && [manager boolValueForKey:@"showPageLabels"]);
+		inputs.showBackground = isInRootViews && [manager boolValueForKey:@"showBackground"];
+		inputs.disableTapGesture = [manager boolValueForKey:@"disableTapGesture"];
+		// Bounds stand in for the orientation and for an iPad window resize, both
+		// of which the label and the background lay themselves out against
+		inputs.bounds = self.bounds.size;
+		inputs.cols = [manager gridValueForKey:@"hs_columns" forListView:self];
+		inputs.rows = [manager gridValueForKey:@"hs_rows" forListView:self];
+		// Offset moves the whole page
+		inputs.topOffset = [manager floatValueForKey:@"hs_offset_top" forListView:self];
+		inputs.leftOffset = [manager floatValueForKey:@"hs_offset_left" forListView:self];
+		// Insets
+		inputs.topInset = [manager floatValueForKey:@"hs_inset_top" forListView:self];
+		inputs.bottomInset = [manager floatValueForKey:@"hs_inset_bottom" forListView:self];
+		inputs.leftInset = [manager floatValueForKey:@"hs_inset_left" forListView:self];
+		inputs.rightInset = [manager floatValueForKey:@"hs_inset_right" forListView:self];
+		// Spacing is actually just inset adjustments that give the use the illusion of change
+		inputs.spaceX = [manager floatValueForKey:@"hs_spacing_x" forListView:self];
+		inputs.spaceY = [manager floatValueForKey:@"hs_spacing_y" forListView:self];
+		inputs.textSize = [manager floatValueForKey:@"label_textSize" forListView:self];
+		inputs.origPortrait = orig.layoutConfiguration.portraitLayoutInsets;
+		inputs.origLandscape = orig.layoutConfiguration.landscapeLayoutInsets;
+
+		if(ARIRootLayoutInputsUnchanged(self, inputs)) return;
+		self._atriaLayoutInputs = inputs;
+
+		// Add spacing for page label
+		CGFloat topInset = inputs.topInset;
+		if(inputs.showPageLabel) topInset += ARIPageLabelReservedSpaceForTextSize(inputs.textSize);
 
 		// Add tap gesture if we didn't already. Do this here to enable/disable dynamically
-		if(!self._atriaTap && ![manager boolValueForKey:@"disableTapGesture"]) {
+		if(!self._atriaTap && !inputs.disableTapGesture) {
 			self._atriaTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(_atriaBeginEditing)];
 			[self._atriaTap setNumberOfTapsRequired:3];
 			[self addGestureRecognizer:self._atriaTap];
-		} else if(self._atriaTap && [manager boolValueForKey:@"disableTapGesture"]) {
+		} else if(self._atriaTap && inputs.disableTapGesture) {
 			[self removeGestureRecognizer:self._atriaTap];
 			self._atriaTap = nil;
 		}
@@ -90,66 +166,45 @@ static BOOL didLaunchSB = NO;
 		// Per-page layout requires copying this object
 		SBIconListGridLayoutConfiguration *config = [orig.layoutConfiguration copy];
 
-		NSUInteger cols = [manager gridValueForKey:@"hs_columns" forListView:self];
-		NSUInteger rows = [manager gridValueForKey:@"hs_rows" forListView:self];
-
 		// Set number of columns/rows, inverting for landscape
-		[config setNumberOfPortraitColumns:cols];
-		[config setNumberOfPortraitRows:rows];
-		[config setNumberOfLandscapeColumns:rows];
-		[config setNumberOfLandscapeRows:cols];
-
-		// Offset moves the whole page
-		CGFloat topOffset = [manager floatValueForKey:@"hs_offset_top" forListView:self];
-		CGFloat leftOffset = [manager floatValueForKey:@"hs_offset_left" forListView:self];
-
-		// Insets
-		CGFloat topInset = [manager floatValueForKey:@"hs_inset_top" forListView:self];
-		CGFloat bottomInset = [manager floatValueForKey:@"hs_inset_bottom" forListView:self];
-		CGFloat leftInset = [manager floatValueForKey:@"hs_inset_left" forListView:self];
-		CGFloat rightInset = [manager floatValueForKey:@"hs_inset_right" forListView:self];
-
-		// Spacing is actually just inset adjustments that give the use the illusion of change
-		CGFloat spaceX = [manager floatValueForKey:@"hs_spacing_x" forListView:self];
-		CGFloat spaceY = [manager floatValueForKey:@"hs_spacing_y" forListView:self];
-
-		// Add spacing for page label
-		if(showPageLabel)
-			topInset += ARIPageLabelReservedSpaceForTextSize([manager floatValueForKey:@"label_textSize" forListView:self]);
+		[config setNumberOfPortraitColumns:inputs.cols];
+		[config setNumberOfPortraitRows:inputs.rows];
+		[config setNumberOfLandscapeColumns:inputs.rows];
+		[config setNumberOfLandscapeRows:inputs.cols];
 
 		// Set layout insets
 		UIEdgeInsets origPortrait = config.portraitLayoutInsets;
 		UIEdgeInsets portraitInsets = UIEdgeInsetsMake(
-			origPortrait.top + topInset + topOffset,
-			origPortrait.left + leftInset + leftOffset,
-			origPortrait.bottom + bottomInset - topOffset,
-			origPortrait.right + rightInset - leftOffset
+			origPortrait.top + topInset + inputs.topOffset,
+			origPortrait.left + inputs.leftInset + inputs.leftOffset,
+			origPortrait.bottom + inputs.bottomInset - inputs.topOffset,
+			origPortrait.right + inputs.rightInset - inputs.leftOffset
 		);
 		// Make final insets with adjustments for icon spacing
 		[config setPortraitLayoutInsets:UIEdgeInsetsMake(
-			portraitInsets.top - spaceY / 2,
-			portraitInsets.left - spaceX / 2,
-			portraitInsets.bottom - spaceY / 2,
-			portraitInsets.right - spaceX / 2
+			portraitInsets.top - inputs.spaceY / 2,
+			portraitInsets.left - inputs.spaceX / 2,
+			portraitInsets.bottom - inputs.spaceY / 2,
+			portraitInsets.right - inputs.spaceX / 2
 		)];
 
 		// Landscape insets
 		UIEdgeInsets origLandscape = config.landscapeLayoutInsets;
 		UIEdgeInsets landscapeInsets = UIEdgeInsetsMake(
-			origLandscape.top + topInset + topOffset,
-			origLandscape.left + leftInset + leftOffset,
-			origLandscape.bottom + bottomInset - topOffset,
-			origLandscape.right + rightInset - leftOffset
+			origLandscape.top + topInset + inputs.topOffset,
+			origLandscape.left + inputs.leftInset + inputs.leftOffset,
+			origLandscape.bottom + inputs.bottomInset - inputs.topOffset,
+			origLandscape.right + inputs.rightInset - inputs.leftOffset
 		);
 		[config setLandscapeLayoutInsets:UIEdgeInsetsMake(
-			landscapeInsets.top - spaceY / 2,
-			landscapeInsets.left - spaceX / 2,
-			landscapeInsets.bottom - spaceY / 2,
-			landscapeInsets.right - spaceX / 2
+			landscapeInsets.top - inputs.spaceY / 2,
+			landscapeInsets.left - inputs.spaceX / 2,
+			landscapeInsets.bottom - inputs.spaceY / 2,
+			landscapeInsets.right - inputs.spaceX / 2
 		)];
 
 		// Update background
-		if(!(isInRootViews && [manager boolValueForKey:@"showBackground"])) {
+		if(!inputs.showBackground) {
 			// Remove background if not needed
 			if(self._atriaBackground) {
 				[self._atriaBackground removeFromSuperview];
@@ -168,7 +223,7 @@ static BOOL didLaunchSB = NO;
 		}
 
 		// Update page label
-		if(!showPageLabel) {
+		if(!inputs.showPageLabel) {
 			// Remove page label if not needed
 			if(self._atriaPageLabel) {
 				[self._atriaPageLabel removeFromSuperview];
