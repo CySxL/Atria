@@ -231,3 +231,8 @@ Version 1.6.3:
 Version 1.6.4:
 - The homescreen stops rebuilding its layout every time SpringBoard asks for one. Nothing checked whether any of the settings behind it had moved, so a page scroll or an unlock paid for a rebuild that produced the same result, which is what the stutter in low power mode was
 - Settings are read from a cache instead of from preferences on every icon, every label and every render pass
+
+Version 1.6.7:
+- Hide Page Dots works on iOS 16. The dots share a view with the search pill there and the two take turns, so the switch now takes that whole area rather than the dots alone
+- Page Labels' Side Inset and Vertical Inset move the label again. They had stopped applying in 1.6.4
+- The page dot offsets and the page label insets go down to -850, far enough to put either at the top of the screen
