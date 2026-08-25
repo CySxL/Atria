@@ -14,8 +14,6 @@ static id fixedLayoutForAppLibrary = nil;
 
 // Option to disable AppLibrary
 - (BOOL)isAppLibrarySupported {
-	// Deliberately frozen for the lifetime of SpringBoard: this answer decides
-	// how the icon model is built, and changing it underneath is not safe
 	static const BOOL enabled = [[ARITweakManager sharedInstance] boolValueForKey:@"enableAppLibrary"];
 	return enabled;
 }
@@ -23,9 +21,6 @@ static id fixedLayoutForAppLibrary = nil;
 %end
 
 %hook SBRootFolderControllerConfiguration
-
-// These two only gate a gesture, so read them live rather than freezing them at
-// first call and making the switches need a respring
 
 - (UIInterfaceOrientationMask)ignoresOverscrollOnFirstPageOrientations {
 	return [[ARITweakManager sharedInstance] boolValueForKey:@"disableTodayGesture"] ? 0 : %orig;

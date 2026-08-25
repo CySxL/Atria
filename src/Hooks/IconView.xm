@@ -13,8 +13,6 @@
 @property (nonatomic, assign) CGRect _atriaNaturalFrame;
 @end
 
-// Base class of every label accessory: the dot other tweaks drive through
-// -currentLabelAccessoryType, plus the system's own badges
 @interface SBIconLabelAccessoryView : UIView
 @property (nonatomic, assign) CGRect _atriaNaturalFrame;
 @end
@@ -44,8 +42,6 @@
 - (BOOL)isTemplate;
 @end
 
-// %property has no weak attribute, and an icon view must not keep its own
-// list view alive, so hold the back reference in a zeroing box
 @interface ARIWeakRef : NSObject
 @property (nonatomic, weak) id object;
 @end
@@ -55,13 +51,10 @@
 
 @interface SBIconView (ARIListViewRef)
 @property (nonatomic, strong) ARIWeakRef *_atriaListViewRef;
-// Geometry the current shadow path was built from
 @property (nonatomic, assign) CGRect _atriaShadowRect;
 @property (nonatomic, assign) CGFloat _atriaShadowScale;
 @end
 
-// objc_getClass locks and hashes the runtime class table. These are asked for
-// once per icon on the layout path, so resolve each of them a single time.
 #define ARI_CACHED_CLASS(fn, name)                        \
 	static Class fn(void) {                               \
 		static Class cls;                                 \
@@ -72,8 +65,6 @@
 		return cls;                                       \
 	}
 
-// The label and the accessory both sit a couple of levels below the icon view,
-// and both answer this, so one walk covers them
 static void ARIReapplyOffsets(UIView *view, NSInteger depth) {
 	if(!view || depth > 3) return;
 	for(UIView *subview in view.subviews) {
@@ -90,7 +81,6 @@ ARI_CACHED_CLASS(ARIIconListViewClass, "SBIconListView")
 ARI_CACHED_CLASS(ARIIconViewClass, "SBIconView")
 ARI_CACHED_CLASS(ARIIconControllerClass, "SBIconController")
 
-// Walks up to the icon view the label belongs to and picks the right setting
 static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
 	if(!manager.usesLabelOffset) return 0;
@@ -146,10 +136,6 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	return orig;
 }
 
-// Split out so a refresh can ask what the answer would be without setting it.
-// The setter tears the label down and builds a new one, and the new one has no
-// frame yet, so calling it needlessly is what stopped a label offset showing
-// until the next time SpringBoard laid the dock out.
 %new
 - (BOOL)_atriaEffectiveAllowsLabelArea:(BOOL)allows {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
@@ -162,17 +148,12 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	} else if(IconIsInFolder(self)) {
 		if([manager boolValueForKey:@"hideLabelsFolders"]) return NO;
 	} else if(IconIsInAnyDock(self)) {
-		// The dock never labels icons on its own, so drive it both ways to keep
-		// the switch reversible without a respring
 		return [manager boolValueForKey:@"showDockLabels"];
 	}
 	return allows;
 }
 
 - (void)setAllowsLabelArea:(BOOL)allows {
-	// SpringBoard reconfigures the dock in bursts and asks for no label every
-	// time. Answering each of those rebuilds the label repeatedly, which is what
-	// fades it in on unlock, so the repeats are left alone deliberately.
 	%orig([self _atriaEffectiveAllowsLabelArea:allows]);
 }
 
@@ -254,9 +235,6 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 		[self setAllowsLabelArea:self.allowsLabelArea];
 	}
 	[self _atriaSetupDropShadow:[[[ARIIconControllerClass() sharedInstance] iconManager] isEditing]];
-	// Only the scale is wanted here. Going through -_updateIconImageViewAnimated:
-	// to reach it made SpringBoard rerun a whole image update and set up an
-	// animation for every icon as it was added to a page.
 	[self _atriaUpdateIconContentScale];
 }
 
@@ -269,8 +247,6 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 - (void)_atriaGenerateDropShadow:(CGRect)rect {
 	if(self.layer.shadowRadius <= 0.0F) return;
 
-	// -setBounds: fires constantly during layout and animation, and each path
-	// costs an allocation, so only rebuild when the geometry actually moved
 	float scale = self.layer.sublayerTransform.m11;
 	if(scale == self._atriaShadowScale && CGRectEqualToRect(rect, self._atriaShadowRect)) return;
 	self._atriaShadowRect = rect;
@@ -297,7 +273,6 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 		self.layer.shadowOpacity = 0.4F;
 		self.layer.shadowRadius = 5.0F;
 		self.layer.shadowColor = [UIColor blackColor].CGColor;
-		// Shadow was off until now, so no cached path can be reused
 		self._atriaShadowRect = CGRectNull;
 		[self _atriaGenerateDropShadow:self.bounds];
 	} else {
@@ -311,8 +286,6 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	[self _atriaGenerateDropShadow:arg1];
 }
 
-// Re-runs the offset against the frame layout last asked for, so the editor can
-// move things without waiting for SpringBoard to lay the icon out again
 %new
 - (void)_atriaApplyDockLabelOffset {
 	ARIReapplyOffsets(self, 0);
@@ -386,7 +359,6 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	%orig(arg1 == 1 ? ![[ARITweakManager sharedInstance] boolValueForKey:@"hideBadges"] : arg1);
 }
 
-
 %end
 
 %hook SBFolderIconImageView
@@ -403,15 +375,9 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 %end
 
-// The panel an opened folder sits on, which holds a single MTMaterialView. Its
-// own group because the floating kind of folder only exists from iOS 14.
 %group FloatyFolderBackground
 %hook SBFolderBackgroundView
 
-// Asked each time rather than recorded when the view is added, because the
-// hierarchy above is not joined up yet at that point. The homescreen's folder
-// icon draws a miniature out of the same classes, so the test is the immediate
-// parent plus the scroll view only a folder that opens has.
 %new
 - (BOOL)_atriaIsOpenFolderBackground {
 	UIView *clip = self.superview;
@@ -438,11 +404,6 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 %end
 %end
 
-// Launching or backgrounding an app makes SpringBoard rebuild the label area,
-// which replaces this view and drops the offset set on the one before it
-// A transform leaves the frame undefined, and SpringBoard writes a frame here
-// on every relayout, so the two fought and the label drifted. Shift the frame
-// layout asks for instead, which stays correct however often it is recomputed.
 %group LabelOffset
 %hook SBIconLegibilityLabelView
 %property (nonatomic, assign) CGRect _atriaNaturalFrame;
@@ -457,17 +418,12 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 %new
 - (void)_atriaReapplyLabelOffset {
-	// Always from the unshifted frame, so this never stacks on itself. A label
-	// rebuilt by -setAllowsLabelArea: has no recorded frame yet, and a frame is
-	// only ever shifted after being recorded, so the current one is unshifted.
 	if(CGRectIsEmpty(self._atriaNaturalFrame)) self._atriaNaturalFrame = self.frame;
 	if(!CGRectIsEmpty(self._atriaNaturalFrame)) [self setFrame:self._atriaNaturalFrame];
 }
 
 %end
 
-// Accessories are laid out beside the label but positioned independently, so
-// they need the same shift or they part company with the text they belong to
 %hook SBIconLabelAccessoryView
 %property (nonatomic, assign) CGRect _atriaNaturalFrame;
 

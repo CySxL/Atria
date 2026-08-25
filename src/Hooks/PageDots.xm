@@ -7,9 +7,6 @@
 #import "../Manager/ARITweakManager.h"
 #import "../Manager/ARIEditManager.h"
 
-// Long enough to read as a move rather than a jump, short enough to have
-// finished before a swipe to the next page can start. Damped just short of
-// critical so it eases in the way the page it follows does.
 static const NSTimeInterval kARIDotSettleDuration = 0.35;
 static const CGFloat kARIDotSettleDamping = 0.86;
 
@@ -27,9 +24,6 @@ static const CGFloat kARIDotSettleDamping = 0.86;
 %property (nonatomic, assign) CGPoint _atriaLastDotOffset;
 
 - (void)layoutPageControlWithMetrics:(const struct SBRootFolderViewMetrics *)metrics {
-    // The editor calls this with NULL to reapply an offset. Per instance, since
-    // a second root folder view would otherwise be laid out to the first one's
-    // geometry, and a zeroed struct is not something to hand back to SpringBoard.
     SBRootFolderViewMetrics cached;
     if(metrics) {
         self._atriaCachedMetrics = *metrics;
@@ -45,9 +39,6 @@ static const CGFloat kARIDotSettleDamping = 0.86;
     ARITweakManager *manager = [ARITweakManager sharedInstance];
     [manager applyPageDotVisibility];
 
-	// One control serves every page, so it follows whichever page is showing.
-	// This only runs when the control is laid out, so a per-page offset arrives
-	// as the page settles rather than tracking the swipe.
 	SBIconListView *current = [manager currentListView];
 	CGPoint offset = CGPointMake([manager floatValueForKey:@"pagedot_offsetX" forListView:current],
 	                             [manager floatValueForKey:@"pagedot_offsetY" forListView:current]);
@@ -59,10 +50,6 @@ static const CGFloat kARIDotSettleDamping = 0.86;
 	newFrame.origin.x += offset.x;
     newFrame.origin.y += offset.y;
 
-	// %orig has just put the control back at its unshifted place, but nothing has
-	// been drawn since, so animating from the presentation value slides it from
-	// where the previous page left it. Dragging the slider is its own continuous
-	// motion and must not have a quarter second added to each step.
 	BOOL dragging = [[ARIEditManager sharedInstance].editingLocation isEqualToString:@"pagedot"];
 	if(dragging || CGPointEqualToPoint(offset, last)) {
 		self._atriaLastDotOffset = offset;
@@ -100,4 +87,3 @@ static const CGFloat kARIDotSettleDamping = 0.86;
         %init();
 	}
 }
-

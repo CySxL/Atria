@@ -13,7 +13,6 @@
 #include <dlfcn.h>
 #include <objc/runtime.h>
 
-
 %hook SBIconController 
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -21,8 +20,6 @@
     [[ARIEditManager sharedInstance] toggleEditView:NO withTargetLocation:nil];
 
     ARITweakManager *manager = [ARITweakManager sharedInstance];
-    // -viewDidAppear: runs again every time an app is closed, so the guide would
-    // queue itself up once more before the user has pressed Dismiss
     static BOOL splashQueued = NO;
     if(![manager boolValueForKey:ARIDidSplashPreferenceKey] && !splashQueued) {
         splashQueued = YES;
@@ -53,7 +50,6 @@
 
 %end
 
-
 %hook SBMainSwitcherWindow
 
 - (void)setHidden:(BOOL)arg {
@@ -63,22 +59,16 @@
 
 %end
 
-
-// Only installed when a label can actually be edited
 %group PageLabelScrollFix
 %hook SBIconScrollView
 
 - (void)scrollRectToVisible:(CGRect)rect animated:(BOOL)animated {
-    // The keyboard makes the scroll view chase the page label's text field.
-    // Swallowing this outright takes scroll-to-visible away from everything
-    // else on the homescreen, so only do it while a label is being typed in.
     if([ARILabelView isEditingAnyLabel]) return;
     %orig;
 }
 
 %end
 %end
-
 
 %hook SpringBoard
 
@@ -88,7 +78,6 @@
 }
 
 %end
-
 
 %group TodayViewFixiPad
 %hook SBTodayViewController

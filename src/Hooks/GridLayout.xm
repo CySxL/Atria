@@ -11,9 +11,6 @@
 // Small macro to round to nearest short assuming x is positive
 #define ROUND_SHORT(x) (short)((x) + 0.5)
 
-// MSHookIvar dereferences NULL when the ivar is missing, so a renamed ivar on a
-// future release would write to address zero on every layout pass. Hand back a
-// pointer instead and let the caller skip the write.
 template <typename Type_>
 static inline Type_ *ARIIvarPointer(id object, const char *name) {
 	Ivar ivar = class_getInstanceVariable(object_getClass(object), name);
@@ -63,8 +60,6 @@ static struct SBHIconGridSizeClassSizes generateGridSizeClassSizes(double cols, 
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
 	if([manager firmwareVersion] < 14 || !self._atriaLocation) return;
 
-	// Recents are capped by the model's own grid, not by the list view's layout
-	// configuration, so setting one without the other changes nothing
 	if(IsLocationFloatingDockSuggestions(self._atriaLocation)) {
 		struct SBHIconGridSize recentsSize = {
 			.width = (short)[manager gridValueForKey:@"maxFloatingDockRecents" forListView:nil],

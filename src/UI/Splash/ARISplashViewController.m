@@ -10,9 +10,6 @@
 // RGB: 81, 8, 126
 #define kTintColor [UIColor colorWithRed:0.32 green:0.03 blue:0.49 alpha:1.0]
 
-// Sized off the screen's own edges rather than whichever one is currently
-// horizontal, or the same device answers small in one orientation and large in
-// the other. The thresholds are the ones each of these already used upright.
 static CGFloat ARIScreenShortSide(void) {
     CGSize size = UIScreen.mainScreen.bounds.size;
     return fmin(size.width, size.height);

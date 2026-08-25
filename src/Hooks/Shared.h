@@ -35,7 +35,6 @@
 
 #define IsLocationFloatingDockSuggestions(x) [x isEqualToString:@"SBIconLocationFloatingDockSuggestions"]
 
-// AnyDock also covers the floating dock suggestions, which is where recents live
 #define IsLocationAnyDock(x) (IsLocationDock(x) || [x containsString:@"Floating"])
 
 #define IconIsInRoot(x) IsLocationRoot(x.location)

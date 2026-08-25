@@ -11,11 +11,8 @@
 
 #import <objc/runtime.h>
 
-// How long a value that has stopped moving takes to settle into place
 static const NSTimeInterval kARISettledDuration = 0.6;
 
-// The dock list view is found by walking the hierarchy, so hold it weakly
-// rather than repeating the walk, and never keep it alive
 @interface ARIWeakBox : NSObject
 @property (nonatomic, weak) id object;
 @end
@@ -369,8 +366,6 @@ static const NSTimeInterval kARISettledDuration = 0.6;
                    lowerLimit:-850.0F
                    upperLimit:200.0F];
 
-        // After registration: migration reads and writes through the same
-        // accessors, and those fall back to the registered defaults
         [self _migrateSettings];
         [self reloadPreferenceState];
     }
@@ -406,8 +401,6 @@ static const NSTimeInterval kARISettledDuration = 0.6;
         [self setValue:perPage forKey:ARIPerPageListViewsKey];
     }
 
-    // Our own domain only. -dictionaryRepresentation merges in NSGlobalDomain
-    // and the system defaults, which the rewrites below would happily match.
     NSDictionary *dict = [_preferences persistentDomainForName:ARIPreferenceDomain];
     for(NSString *key in [dict allKeys]) {
         // Welcome is now renamed to label
@@ -499,8 +492,6 @@ static const NSTimeInterval kARISettledDuration = 0.6;
     void (^applyLayout)() = ^void() {
         if(forDock) {
             // Layout dock icons and set alpha
-            // Which branch holds the dock's icons, not which views are safe to
-            // touch. With the dock forced on, they live under the controller.
             if(![[self class] isUsingFloatingDock]) {
                 SBIconListView *listView = [self _dockListView];
                 [[rootFolderView dockView] _atriaUpdateDockForSettingsChanged];
@@ -513,23 +504,16 @@ static const NSTimeInterval kARISettledDuration = 0.6;
                 [self _refreshIconViewsInListView:[fdController suggestionsIconListView]];
                 [[fdController userIconListView] layoutIconsNow];
                 [[fdController suggestionsIconListView] layoutIconsNow];
-                // Fix for library pod icon. This one alone writes a transform onto
-                // the pod the App Library zooms from, so it stays on iPads.
                 if([[self class] shouldTouchFloatingDockViews]) {
                     SBFloatingDockViewController *fdvc = [fdController floatingDockViewController];
                     if([fdvc respondsToSelector:@selector(libraryPodIconView)])
                         [[fdvc libraryPodIconView] _atriaUpdateIconContentScale];
                 }
             }
-            // The background alpha is a plain opacity write, so a forced dock on
-            // iPhone gets it too. Only reached once SpringBoard has built one.
             [self _updateFloatingDockBackground];
         }
 
         if(forRoot) {
-            // -layoutIconsNow repositions icon views without changing their
-            // bounds, so it never reaches -layoutSubviews. Only the page on
-            // screen needs refreshing now, the rest catch up when laid out.
             [self _refreshIconViewsInListView:[self currentListView]];
             // Enumerate list views in root and lay them out as well
             for(SBIconListView *listView in rootFolderView.iconListViews) {
@@ -544,8 +528,6 @@ static const NSTimeInterval kARISettledDuration = 0.6;
         return;
     }
 
-    // A drag step has to run straight into the next one, so it interpolates
-    // linearly. A settled value eases.
     UIViewAnimationOptions curve = duration <= ARIDragApplyInterval
                                        ? UIViewAnimationOptionCurveLinear
                                        : UIViewAnimationOptionCurveEaseInOut;
@@ -575,10 +557,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return nil;
 }
 
-// The _dockListView ivar the original code read is empty from iOS 16 on, and
-// nothing said so: the dock kept working because everything else reaches it by
-// another route, and only the label offset went through here. Find the list by
-// the location it reports instead of by an ivar name.
 - (SBIconListView *)_dockListView {
     SBIconListView *cached = _dockListViewRef.object;
     if(cached.superview && IconListIsDock(cached)) return cached;
@@ -591,20 +569,12 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return listView;
 }
 
-// A plain opacity write, so a forced dock on iPhone gets it too. Goes through
-// the view SpringBoard already presented rather than the controller, which
-// would build one where none belongs.
 - (void)_updateFloatingDockBackground {
     [[objc_getClass("SBFloatingDockView") _atriaPresentedDockView] _atriaUpdateDockForSettingsChanged];
 }
 
-// Icon views only consult the label setting when they are added to a list, so
-// nudge the existing ones when the dock label switch is toggled
 - (void)_refreshIconView:(SBIconView *)iconView {
     if(!iconView) return;
-    // Setting this rebuilds the label, and a rebuilt label has no frame for the
-    // offset to move until the next layout pass. Only drive it when the answer
-    // has actually changed; SpringBoard's own calls are untouched.
     BOOL allows = [iconView _atriaEffectiveAllowsLabelArea:iconView.allowsLabelArea];
     if(allows != iconView.allowsLabelArea) [iconView setAllowsLabelArea:allows];
     [iconView _atriaApplyDockLabelOffset];
@@ -623,8 +593,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 
     BOOL editing = dropShadow && [[[objc_getClass("SBIconController") sharedInstance] iconManager] isEditing];
 
-    // -icons hands back the model's icons rather than the views showing them,
-    // so walk the hierarchy instead of messaging whatever that array holds
     for(UIView *subview in listView.subviews) {
         if(![subview isKindOfClass:iconViewClass]) continue;
         [self _refreshIconView:(SBIconView *)subview];
@@ -632,9 +600,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     }
 }
 
-// What a settings change can touch without going near the grid. The layout
-// hooks are optional, and forcing a visible range against row and column counts
-// they aren't applying would hide icons.
 - (void)refreshPreferenceDependentViews {
     for(SBIconListView *listView in [self allRootListViews])
         [self _refreshIconViewsInListView:listView updatingDropShadow:YES];
@@ -702,7 +667,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
         [self relayoutEntireIconModel];
     }
 
-    // Fixes the floating dock background alpha on iOS 14
     [self _updateFloatingDockBackground];
 
     [self applyPageDotVisibility];
@@ -734,10 +698,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     if(!target || !IconListIsRoot(target)) return @"";
     return [self _prefixForIndex:[self indexOfListView:target]];
 }
-
-// Both of these are pure functions of their inputs, and the layout path asks
-// for them once per icon per pass, so build each string only once. The index
-// itself is still looked up every time, since page order can change.
 
 - (NSString *)_prefixForIndex:(NSUInteger)index {
     NSNumber *boxed = @(index);
@@ -788,10 +748,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return [[self rawValueForKey:key] floatValue];
 }
 
-// Every typed accessor comes through here, and -[SBIconBadgeView alpha], the
-// label offsets and the shadow hooks ask on every render pass, where a defaults
-// lookup is far dearer than a dictionary hit. A key with nothing stored and no
-// registered default is remembered as NSNull so it is not asked for twice.
 - (id)rawValueForKey:(NSString *)key {
     id cached = _valueCache[key];
     if(cached) return cached == [NSNull null] ? nil : cached;
@@ -801,18 +757,12 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return value;
 }
 
-// The flags below are sticky, so they only ever need to notice an offset
-// switching on. Anything else a write touches would not change the answer.
 - (void)_didWritePreferencesForKey:(NSString *)key {
     _preferenceGeneration++;
     if(!key || [key hasSuffix:@"label_offset"]) _labelOffsetStateValid = NO;
-    // A page label saved just now has to be readable before the next reload
     if([key hasPrefix:@"Page"]) _hasPageScopedKeys = YES;
 }
 
-// The layout path asks this for every icon, so it has to be cheap. Sticky on
-// purpose: were it allowed back to NO, setting an offset to zero would return
-// early and leave the last offset stuck on the label instead of clearing it.
 - (void)_ensureLabelOffsetState {
     if(_labelOffsetStateValid) return;
     _labelOffsetStateValid = YES;
@@ -821,9 +771,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     _usesHsLabelOffset |= [self floatValueForKey:@"hs_label_offset"] != 0;
     if(_usesHsLabelOffset || !_hasPerPageLayouts) return;
 
-    // A page may set one while the global value is still zero. The prefixes are
-    // already known, so ask for those keys rather than dumping the whole domain,
-    // which would carry the saved icon state with it.
     for(NSString *prefix in (NSArray *)[_preferences objectForKey:ARIPerPageListViewsKey]) {
         if(![prefix isKindOfClass:[NSString class]]) continue;
         NSString *key = [self _pageKeyForPrefix:prefix key:@"hs_label_offset"];
@@ -848,9 +795,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return _usesHsLabelOffset;
 }
 
-// Callers pass these straight to NSString methods. A stored value of the wrong
-// type would be an unrecognised selector inside SpringBoard, so fall back to
-// the default instead of trusting whatever is on disk.
 - (NSString *)stringValueForKey:(NSString *)key {
     id value = [_preferences objectForKey:key];
     if([value isKindOfClass:[NSString class]]) return value;
@@ -871,9 +815,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     }
 }
 
-// -setValue:forKey: compares against the stored value to avoid a needless
-// write. For the saved icon state that comparison walks every icon on every
-// page, which costs more than the write it is trying to avoid.
 - (void)setRawValue:(id)val forKey:(NSString *)key {
     [_preferences setObject:val forKey:key];
     [_valueCache removeObjectForKey:key];
@@ -889,20 +830,11 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 // Get/set preference values by icon list view
 // We try to locate value for the current list view, if it exists
 
-// These run for every icon on every layout pass, so avoid building the page
-// key at all unless the list view actually has a per-page prefix.
-
 - (id)_pageValueForKey:(NSString *)key forListView:(SBIconListView *)list {
-    // Skip the list view index lookup when nothing is stored per page. Keyed on
-    // the presence of Page%d_ keys and not on the per-page layout list, because
-    // a page label writes one without registering a layout. Read path only:
-    // -createCustomForListView: needs a real prefix before the page is added.
     if(!_hasPageScopedKeys) return nil;
 
     NSString *prefix = [self prefixForListView:list];
     if(![prefix length]) return nil;
-    // Page keys are not registered, so the registry fallback in there is nil and
-    // this keeps the stored value only, which is what the callers below expect
     return [self rawValueForKey:[self _pageKeyForPrefix:prefix key:key]];
 }
 
@@ -911,10 +843,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return value ? (int)[value integerValue] : [self intValueForKey:key];
 }
 
-// Row and column counts are typed freely in the editor. Anything below one
-// reaches UIKit either as a division by zero or, once the signed value is
-// assigned to NSUInteger, as a count near NSUIntegerMax. The value is saved to
-// preferences, so an unusable homescreen would survive the respring too.
 - (NSUInteger)gridValueForKey:(NSString *)key forListView:(SBIconListView *)list {
     int value = [self intValueForKey:key forListView:list];
     return value < 1 ? 1 : (NSUInteger)value;
@@ -956,14 +884,9 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 
 // Per-page layout creation/deletion and management
 
-// Called on launch and whenever preferences change underneath us, so anything
-// derived from defaults and held in memory gets rebuilt here
 - (void)reloadPreferenceState {
     _hasPerPageLayouts = [(NSArray *)[_preferences objectForKey:ARIPerPageListViewsKey] count] > 0;
 
-    // Page labels write a Page%d_ key without registering a layout, so the read
-    // path cannot go by the layout list alone. Settings changes are rare enough
-    // to afford the scan; the read path itself only sees the flag.
     _hasPageScopedKeys = _hasPerPageLayouts;
     if(!_hasPageScopedKeys) {
         for(NSString *key in [_preferences persistentDomainForName:ARIPreferenceDomain]) {
@@ -1001,8 +924,6 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     [perPage addObject:prefix];
     [self setValue:perPage forKey:ARIPerPageListViewsKey];
 
-    // These go straight into the domain, so the reload that clears the read
-    // cache has to come after them, not before
     for(NSString *key in _orderedSettingKeys) {
         [_preferences setObject:[self rawValueForKey:key]
                          forKey:[NSString stringWithFormat:@"%@%@", prefix, key]];
@@ -1025,18 +946,9 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     return [objc_getClass("SBFloatingDockController") isFloatingDockSupported];
 }
 
-// Guards the one call that was measured to cause harm: scaling the library pod
-// writes a transform onto the view the App Library zooms from, and with the dock
-// forced on an iPhone that left every transition collapsing into the top corner
-// until the next respring. Everything else about the forced dock is real and
-// must not be withheld, since that is where its icons live.
 + (BOOL)shouldTouchFloatingDockViews {
     return [self isUsingFloatingDock] && [[self sharedInstance] isDeviceIPad];
 }
-
-// These two only act on a dock SpringBoard has already built, so they follow
-// the forced answer. Withholding them left the keyboard fighting a floating
-// dock nothing was allowed to put away.
 
 + (void)dismissFloatingDockIfPossible {
     if([self isUsingFloatingDock]) {

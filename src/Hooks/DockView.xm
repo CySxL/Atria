@@ -37,16 +37,12 @@ static SBFloatingDockController *fdController;
 
 - (void)traitCollectionDidChange:(UITraitCollection *)old {
     %orig(old);
-    // The dock resets its own alpha as part of the trait change, so reapply
-    // once it has finished rather than from inside the callback. This is what
-    // fixes the dock going full alpha on a dark/light mode switch.
     dispatch_async(dispatch_get_main_queue(), ^{
         [self _atriaUpdateDockForSettingsChanged];
     });
 }
 
 %end
-
 
 %hook SBFloatingDockController
 
@@ -83,7 +79,6 @@ static SBFloatingDockController *fdController;
 
 %end
 
-
 %hook SBFloatingDockDefaults
 
 - (BOOL)recentsEnabled {
@@ -97,7 +92,6 @@ static SBFloatingDockController *fdController;
 %end
 
 %hook SBFloatingDockSuggestionsModel
-
 
 // iOS 13-15
 - (id)initWithMaximumNumberOfSuggestions:(unsigned long long)arg1
@@ -126,13 +120,8 @@ static SBFloatingDockController *fdController;
     return %orig(maxRecents, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
 
-
 %end
 
-
-// Only ever the view SpringBoard itself put on screen. Asking the controller
-// for one instead builds the whole floating dock on a device that has no
-// business having it, which is what the App Library then zoomed towards.
 static __weak SBFloatingDockView *presentedFloatingDockView;
 
 %hook SBFloatingDockView
@@ -162,7 +151,6 @@ static __weak SBFloatingDockView *presentedFloatingDockView;
 
 %end
 
-
 %hook SBFloatingDockPlatterView
 
 - (void)setBackgroundView:(UIView *)arg1 {
@@ -171,7 +159,6 @@ static __weak SBFloatingDockView *presentedFloatingDockView;
 }
 
 %end
-
 
 %ctor {
 	if([[ARITweakManager sharedInstance] isEnabled]) {

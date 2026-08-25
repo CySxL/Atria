@@ -67,16 +67,11 @@
 }
 
 - (void)exportSettingsString {
-    // Read the domain directly rather than the backing plist, so this works
-    // regardless of where the jailbreak puts it
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
     [defaults synchronize];
     NSMutableDictionary *dict = [[defaults persistentDomainForName:ARIPreferenceDomain] mutableCopy]
                                     ?: [NSMutableDictionary new];
 
-    // The underscore prefix means it's an internal setting, not meant to be
-    // shared. The per-page list is the exception: it is part of the layout being
-    // shared, and without it every Page%d_ value in the string is unreadable.
     for(NSString *key in [dict allKeys])
         if([key hasPrefix:@"_"] && ![key isEqualToString:ARIPerPageListViewsKey])
             [dict removeObjectForKey:key];
@@ -117,16 +112,11 @@
     }
     NSDictionary *settingsDictionary = decoded;
 
-    // SpringBoard reads these keys as numbers and strings without checking. A
-    // settings string is something users paste from strangers, so anything of
-    // an unexpected type here would be a respring loop on their device.
     NSMutableDictionary *accepted = [NSMutableDictionary new];
     for(NSString *key in settingsDictionary) {
         if(![key isKindOfClass:[NSString class]]) continue;
 
         id value = settingsDictionary[key];
-        // The per-page list is the one internal key worth carrying across, and
-        // it is an array of prefixes rather than a scalar
         if([key isEqualToString:ARIPerPageListViewsKey]) {
             if(![value isKindOfClass:[NSArray class]]) continue;
             BOOL allStrings = YES;

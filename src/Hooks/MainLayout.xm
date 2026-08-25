@@ -17,10 +17,6 @@ static BOOL didLaunchSB = NO;
 - (SBIconListFlowExtendedLayout *)layoutForIconLocation:(NSString *)location;
 @end
 
-// Everything the root layout and its views are built from. SpringBoard asks for
-// a relayout far more often than any of these change, so the rebuild compares
-// them and allocates only when one moved. Anything read in the root branch of
-// -_atriaUpdateLayoutCache has to be in here or it will stop taking effect.
 typedef struct {
 	BOOL valid;
 	NSUInteger prefGeneration;
@@ -48,8 +44,6 @@ typedef struct {
 @property (nonatomic, assign) ARIRootLayoutInputs _atriaLayoutInputs;
 @end
 
-// The view checks catch a label or background taken out of the hierarchy while
-// the settings behind it stayed the same, which the values alone cannot see.
 static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayoutInputs inputs) {
 	ARIRootLayoutInputs previous = listView._atriaLayoutInputs;
 	if(!previous.valid || memcmp(&previous, &inputs, sizeof(inputs)) != 0) return NO;
@@ -80,7 +74,6 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 	SBIconListModel *model = [self model];
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
  	if(!model._atriaLocation) model._atriaLocation = self.iconLocation;
- 	// -layout runs constantly, so don't rewrite an entry that is already correct
  	if([manager.listViewModelMap objectForKey:model] != self)
  		[manager.listViewModelMap setObject:self forKey:model];
 
@@ -128,8 +121,6 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 		inputs.showPageLabel = (isFirstIconList && [manager boolValueForKey:@"showWelcome"]) || (isInRootViews && [manager boolValueForKey:@"showPageLabels"]);
 		inputs.showBackground = isInRootViews && [manager boolValueForKey:@"showBackground"];
 		inputs.disableTapGesture = [manager boolValueForKey:@"disableTapGesture"];
-		// Bounds stand in for the orientation and for an iPad window resize, both
-		// of which the label and the background lay themselves out against
 		inputs.bounds = self.bounds.size;
 		inputs.cols = [manager gridValueForKey:@"hs_columns" forListView:self];
 		inputs.rows = [manager gridValueForKey:@"hs_rows" forListView:self];
@@ -355,8 +346,6 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 		[orig.layoutConfiguration setNumberOfLandscapeColumns:rows];
 		[orig.layoutConfiguration setNumberOfLandscapeRows:cols];
 	} else if(IsLocationFloatingDockSuggestions(location)) {
-		// Recents live in their own list, and the icon limit comes from this
-		// grid, so the model drops anything past it however high the setting is
 		NSUInteger recents = [manager gridValueForKey:@"maxFloatingDockRecents" forListView:nil];
 		[orig.layoutConfiguration setNumberOfPortraitColumns:recents];
 		[orig.layoutConfiguration setNumberOfPortraitRows:1];
@@ -372,7 +361,6 @@ static BOOL layoutHooksInstalled = NO;
 
 static void applyPreferencesChanged() {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
-	// Settings may have been imported behind our back
 	[manager reloadPreferenceState];
 	if(layoutHooksInstalled)
 		[manager updateLayoutForRoot:YES forDock:YES animated:YES];
@@ -381,8 +369,6 @@ static void applyPreferencesChanged() {
 	[manager applyPageDotVisibility];
 }
 
-// Every switch in the prefs bundle posts this, and a Darwin notification can
-// come from anywhere, so collapse a burst into one pass
 static void preferencesChanged() {
 	static BOOL queued = NO;
 	if(queued) return;
@@ -403,8 +389,6 @@ static void preferencesChanged() {
 		layoutHooksInstalled = YES;
 	}
 
-	// Registered either way: with layout off the rest of the settings still
-	// need somewhere to hear about a change
 	CFNotificationCenterAddObserver(
 		CFNotificationCenterGetDarwinNotifyCenter(),
 		NULL,

@@ -6,9 +6,6 @@
 #import "Shared.h"
 #import "../Manager/ARITweakManager.h"
 
-// This is handed straight to the icon model while SpringBoard is coming up, so
-// anything but a populated dictionary would crash it before Settings can be
-// reached to clear the value. Drop what we can't use and fall back to the store.
 static BOOL ARIIconStateIsUsable(id state) {
     return [state isKindOfClass:[NSDictionary class]] && [(NSDictionary *)state count] > 0;
 }

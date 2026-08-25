@@ -9,9 +9,6 @@
 
 static NSString *const ARIUpdateLabelVisibilityNotification = @"me.lau.Atria/UpdateLabelVisibility";
 
-// The label's height, and the space a page reserves above its icons for one.
-// 50 and 60 were the figures for the default 27pt text and hold no larger, so
-// both come off the ratio between them instead. label_textSize goes to 60.
 static inline CGFloat ARIPageLabelHeightForTextSize(CGFloat textSize) {
     return ceil(textSize * 1.85F);
 }

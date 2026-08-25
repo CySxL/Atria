@@ -178,10 +178,6 @@
     [manager updateLayoutForEditingWithDuration:duration];
 }
 
-// Value changed arrives at the touch sample rate, and every pass writes
-// preferences and lays out each page. Applying on an interval and animating for
-// exactly that long keeps the motion continuous with one animation alive at a
-// time, where the original 0.6 second animation per sample left dozens.
 - (void)sliderDidChange:(UISlider *)slider event:(UIEvent *)event {
     [self updateCurrentText];
     if(_applyScheduled) return;
@@ -200,7 +196,6 @@
     [[ARITweakManager sharedInstance] feedbackForButton];
 }
 
-// The last sample of a drag can land inside the throttle window
 - (void)sliderDidEnd:(UISlider *)slider {
     [self _applyCurrentValueWithDuration:0.2];
 }
@@ -237,8 +232,6 @@
 }
 
 - (void)endTextEntry {
-    // Reached from -removeFromSuperview and from closing the options view as
-    // well, neither of which dismissed the dock in the first place
     BOOL wasEditing = [self.currentValueTextEntry isFirstResponder];
     [self.currentValueTextEntry resignFirstResponder];
     // Restore/update text

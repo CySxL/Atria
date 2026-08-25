@@ -8,8 +8,6 @@
 
 #import <objc/runtime.h>
 
-// Real filesystem path even under roothide: SpringBoard is not in the
-// bootstrap namespace, so this must not go through jbroot()
 static NSString *const ARIGeocodeCachePath = @"/var/mobile/Documents/locationQueryGeocodeCacheFolder";
 
 @implementation ARIWelcomeLabelView {
@@ -25,7 +23,6 @@ static NSString *const ARIGeocodeCachePath = @"/var/mobile/Documents/locationQue
     if(self) {
         _calendar = [[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
 
-        // Weak, or the timer would keep this view alive and firing forever
         __weak __typeof(self) weakSelf = self;
         _updateTimer = [NSTimer scheduledTimerWithTimeInterval:60
                                                        repeats:YES
@@ -50,9 +47,6 @@ static NSString *const ARIGeocodeCachePath = @"/var/mobile/Documents/locationQue
     return self;
 }
 
-// Weather is only worth fetching if something on screen actually shows it.
-// Creating the updater at all is what starts the location lookup, so this has
-// to gate construction and not just whether the icon is drawn.
 - (BOOL)_needsWeather {
     ARITweakManager *manager = [ARITweakManager sharedInstance];
     if([manager boolValueForKey:@"showWeatherIcon"]) return YES;
@@ -69,16 +63,12 @@ static NSString *const ARIGeocodeCachePath = @"/var/mobile/Documents/locationQue
         return;
     }
 
-    // -updateView runs on every layout pass, so only fetch when first creating
-    // the updater rather than kicking off a lookup each time
     if(_weatherUpdater) return;
     _weatherUpdater = [[objc_getClass("WALockscreenWidgetViewController") alloc] init];
     _lastWeatherFetch = [NSDate date];
     [_weatherUpdater updateWeather];
 }
 
-// Off by default: a lookup is what wakes location up, so nobody pays for this
-// unless they ask for it
 - (void)_refreshWeatherIfDue {
     if(!_weatherUpdater) return;
 
@@ -90,8 +80,6 @@ static NSString *const ARIGeocodeCachePath = @"/var/mobile/Documents/locationQue
     [_weatherUpdater updateWeather];
 }
 
-// Geocode cache left behind by the weather lookup. WeatherFoundation writes it,
-// not us, so only clear it once weather is off and nothing here will refill it.
 - (void)_purgeGeocodeCache {
     static dispatch_once_t token;
     dispatch_once(&token, ^{
@@ -138,7 +126,6 @@ static NSString *const ARIGeocodeCachePath = @"/var/mobile/Documents/locationQue
 
 - (void)saveTextValue:(NSString *)text {
     [[ARITweakManager sharedInstance] setValue:text forKey:@"labelText"];
-    // The new text may have added or dropped a weather token
     [self _updateWeatherUpdater];
 }
 

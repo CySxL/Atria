@@ -11,9 +11,6 @@
 static NSString *const ARIPreferenceDomain = @"me.lau.AtriaPrefs";
 static NSString *const ARIPerPageListViewsKey = @"_perPageListViews";
 
-// A drag applies on this interval and animates for exactly as long, so one step
-// finishes as the next begins. The animation is what makes the motion look
-// continuous; dropping it leaves the layout stepping between applied values.
 static const NSTimeInterval ARIDragApplyInterval = 1.0 / 60.0;
 
 typedef struct SBHIconGridSize {
@@ -75,8 +72,6 @@ typedef struct SBRootFolderViewMetrics {
 
 @class SBSApplicationShortcutItem;
 @interface SBIconView : UIView
-// Weak: this is the icon view's own superview, and a strong reference would
-// keep every list view alive for as long as one of its icons survived
 @property (nonatomic, weak) SBIconListView *_atriaLastIconListView;
 @property (nonatomic, strong) id icon;
 @property (nonatomic, strong) UIView *contentContainerView;
@@ -137,7 +132,7 @@ typedef struct SBRootFolderViewMetrics {
 - (void)_atriaBeginEditing;
 - (void)_atriaUpdateLayoutCache;
 
-- (NSArray *)icons; // SBIcon, not SBIconView
+- (NSArray *)icons;
 - (SBIconListViewLayoutMetrics *)layoutMetrics;
 - (SBIcon *)iconAtCoordinate:(struct SBIconCoordinate)co metrics:(id)metrics;
 - (struct SBIconCoordinate)coordinateForIcon:(id)icon;

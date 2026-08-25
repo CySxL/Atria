@@ -37,7 +37,6 @@
 
         _username = specifier.properties[@"username"];
         _displayName = specifier.properties[@"displayName"];
-        // Not everyone credited here is on Twitter
         _url = specifier.properties[@"url"];
 
         _userLabel = [[UILabel alloc] init];

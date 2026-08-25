@@ -104,8 +104,6 @@
         _textField.font = [UIFont systemFontOfSize:textSize weight:UIFontWeightSemibold];
     }
 
-    // When locked, the field stops taking touches entirely so a stray tap falls
-    // through to the list view instead of opening the keyboard
     BOOL locked = [manager boolValueForKey:@"lockPageLabels"];
     _textField.userInteractionEnabled = !locked;
     if(locked && [_textField isEditing]) [self endTextEntry];
@@ -124,7 +122,6 @@
     } else if(![manager boolValueForKey:@"pageLabelShadow"] && _textField.layer.shadowOpacity > 0.0) {
         _textField.layer.shadowOpacity = 0.0F;
         _textField.layer.shadowRadius = 0.0F;
-        // Left on, the text keeps paying for an offscreen pass every time it changes
         _textField.layer.shouldRasterize = NO;
     }
 
@@ -152,8 +149,6 @@
     _labelTopAnchor.constant = origin.y + topInset;
 }
 
-// Read by the scroll fix in Helper.xm, which only has to swallow
-// -scrollRectToVisible:animated: while a label has the keyboard up
 static NSUInteger _editingLabelCount = 0;
 
 + (BOOL)isEditingAnyLabel {
@@ -188,8 +183,6 @@ static NSUInteger _editingLabelCount = 0;
 }
 
 - (void)endTextEntry {
-    // -removeFromSuperview comes through here too, so only hand the dock back
-    // when this label is what took it away
     BOOL wasEditing = [_textField isFirstResponder];
     [_textField resignFirstResponder];
     if(wasEditing) [ARITweakManager presentFloatingDockIfPossible];
