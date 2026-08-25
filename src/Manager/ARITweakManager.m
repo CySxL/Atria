@@ -311,12 +311,12 @@ static const NSTimeInterval kARISettledDuration = 0.6;
         [self _registerOption:@"label_inset_left"
                   translation:@"Side Inset"
                  defaultValue:@(0)
-                   lowerLimit:-200.0F
+                   lowerLimit:-850.0F
                    upperLimit:200.0F];
         [self _registerOption:@"label_inset_top"
                   translation:@"Vertical Inset"
                  defaultValue:@(0)
-                   lowerLimit:-200.0F
+                   lowerLimit:-850.0F
                    upperLimit:200.0F];
 
         // Blur background
@@ -361,12 +361,12 @@ static const NSTimeInterval kARISettledDuration = 0.6;
         [self _registerOption:@"pagedot_offsetX"
                   translation:@"Dot X Offset"
                  defaultValue:@(0)
-                   lowerLimit:-150.0F
+                   lowerLimit:-850.0F
                    upperLimit:150.0F];
         [self _registerOption:@"pagedot_offsetY"
                   translation:@"Dot Y Offset"
                  defaultValue:@(0)
-                   lowerLimit:-200.0F
+                   lowerLimit:-850.0F
                    upperLimit:200.0F];
 
         // After registration: migration reads and writes through the same
