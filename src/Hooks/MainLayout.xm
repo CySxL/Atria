@@ -23,6 +23,7 @@ static BOOL didLaunchSB = NO;
 // -_atriaUpdateLayoutCache has to be in here or it will stop taking effect.
 typedef struct {
 	BOOL valid;
+	NSUInteger prefGeneration;
 	BOOL isFirstIconList;
 	BOOL showPageLabel;
 	BOOL showBackground;
@@ -122,6 +123,7 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 		ARIRootLayoutInputs inputs;
 		memset(&inputs, 0, sizeof(inputs));
 		inputs.valid = YES;
+		inputs.prefGeneration = manager.preferenceGeneration;
 		inputs.isFirstIconList = isFirstIconList;
 		inputs.showPageLabel = (isFirstIconList && [manager boolValueForKey:@"showWelcome"]) || (isInRootViews && [manager boolValueForKey:@"showPageLabels"]);
 		inputs.showBackground = isInRootViews && [manager boolValueForKey:@"showBackground"];

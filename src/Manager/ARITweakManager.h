@@ -212,6 +212,7 @@ typedef struct SBRootFolderViewMetrics {
 @property (nonatomic, readonly, strong) NSUserDefaults *preferences;
 @property (nonatomic, readonly, strong) NSMapTable *listViewModelMap;
 @property (nonatomic, readonly, assign) NSUInteger firmwareVersion;
+@property (nonatomic, readonly, assign) NSUInteger preferenceGeneration;
 @property (nonatomic, readonly, assign, getter=isDeviceIPad) BOOL deviceIPad;
 @property (nonatomic, readonly, assign, getter=isShyLabelsInstalled) BOOL shyLabelsInstalled;
 @property (nonatomic, readonly, assign) BOOL usesLabelOffset;

@@ -39,6 +39,7 @@ static const NSTimeInterval kARISettledDuration = 0.6;
     BOOL _usesDockLabelOffset;
     BOOL _usesHsLabelOffset;
     NSUInteger _firmwareVersion;
+    NSUInteger _preferenceGeneration;
     BOOL _deviceIPad;
     BOOL _shyLabelsInstalled;
 }
@@ -46,6 +47,7 @@ static const NSTimeInterval kARISettledDuration = 0.6;
 @synthesize enabled = _enabled;
 @synthesize preferences = _preferences;
 @synthesize firmwareVersion = _firmwareVersion;
+@synthesize preferenceGeneration = _preferenceGeneration;
 @synthesize deviceIPad = _deviceIPad;
 @synthesize shyLabelsInstalled = _shyLabelsInstalled;
 @synthesize listViewModelMap = _listViewModelMap;
@@ -802,6 +804,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 // The flags below are sticky, so they only ever need to notice an offset
 // switching on. Anything else a write touches would not change the answer.
 - (void)_didWritePreferencesForKey:(NSString *)key {
+    _preferenceGeneration++;
     if(!key || [key hasSuffix:@"label_offset"]) _labelOffsetStateValid = NO;
     // A page label saved just now has to be readable before the next reload
     if([key hasPrefix:@"Page"]) _hasPageScopedKeys = YES;
