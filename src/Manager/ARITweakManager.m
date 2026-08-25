@@ -647,6 +647,30 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     [self _updateFloatingDockBackground];
 }
 
+- (void)applyPageDotVisibility {
+    SBRootFolderView *rootFolderView = [self rootFolderView];
+    BOOL hide = [self boolValueForKey:@"hidePageDots"];
+
+    if(_firmwareVersion < 16) {
+        rootFolderView.pageControl.hidden = hide;
+        return;
+    }
+
+    SBFolderScrollAccessoryView *accessory = (SBFolderScrollAccessoryView *)rootFolderView.scrollAccessoryView;
+    if(!accessory) return;
+    accessory.hidden = hide;
+
+    if(![accessory respondsToSelector:@selector(pageControl)]) return;
+    UIView *dots = accessory.pageControl;
+    dots.hidden = hide;
+    if(hide)
+        dots.alpha = 0;
+    else if([accessory respondsToSelector:@selector(_applyCurrentMode)])
+        [accessory _applyCurrentMode];
+    else
+        dots.alpha = 1;
+}
+
 // This lags the device somewhat, so limit this as much as possible!
 - (void)relayoutEntireIconModel {
     // This will cause the entire icon model to re-layout
@@ -678,6 +702,8 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 
     // Fixes the floating dock background alpha on iOS 14
     [self _updateFloatingDockBackground];
+
+    [self applyPageDotVisibility];
 }
 
 - (SBRootFolderView *)rootFolderView {

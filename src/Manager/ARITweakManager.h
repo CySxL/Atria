@@ -162,6 +162,11 @@ typedef struct SBRootFolderViewMetrics {
 - (SBDockView *)dockView;
 @end
 
+@interface SBFolderScrollAccessoryView : UIView
+@property (nonatomic, readonly, strong) UIView *pageControl;
+- (void)_applyCurrentMode;
+@end
+
 @interface SBRootFolderController : UIViewController
 - (SBRootFolderView *)rootFolderView;
 @end
@@ -217,6 +222,7 @@ typedef struct SBRootFolderViewMetrics {
 - (void)updateLayoutForRoot:(BOOL)forRoot forDock:(BOOL)forDock animated:(BOOL)animated;
 - (void)updateLayoutForRoot:(BOOL)forRoot forDock:(BOOL)forDock duration:(NSTimeInterval)duration;
 - (void)refreshPreferenceDependentViews;
+- (void)applyPageDotVisibility;
 - (void)relayoutEntireIconModel;
 - (void)feedbackForButton;
 - (void)onSpringboardLaunched;

@@ -389,19 +389,6 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 %end
 
-%hook SBIconListPageControl
-
-- (void)setHidden:(BOOL)arg1  {
-	// Hide page dots
-	if([[ARITweakManager sharedInstance] boolValueForKey:@"hidePageDots"]) {
-		%orig(YES);
-		return;
-	}
-	%orig(arg1);
-}
-
-%end
-
 %hook SBFolderIconImageView
 
 - (void)setBackgroundView:(id)arg1 {

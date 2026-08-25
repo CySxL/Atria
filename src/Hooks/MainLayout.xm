@@ -376,6 +376,7 @@ static void applyPreferencesChanged() {
 		[manager updateLayoutForRoot:YES forDock:YES animated:YES];
 	else
 		[manager refreshPreferenceDependentViews];
+	[manager applyPageDotVisibility];
 }
 
 // Every switch in the prefs bundle posts this, and a Darwin notification can

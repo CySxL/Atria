@@ -43,6 +43,8 @@ static const CGFloat kARIDotSettleDamping = 0.86;
     %orig(metrics);
 
     ARITweakManager *manager = [ARITweakManager sharedInstance];
+    [manager applyPageDotVisibility];
+
 	// One control serves every page, so it follows whichever page is showing.
 	// This only runs when the control is laid out, so a per-page offset arrives
 	// as the page settles rather than tracking the swipe.
@@ -76,6 +78,18 @@ static const CGFloat kARIDotSettleDamping = 0.86;
 	                    options:UIViewAnimationOptionBeginFromCurrentState
 	                 animations:^{ pageControl.frame = newFrame; }
 	                 completion:nil];
+}
+
+%end
+
+%hook SBIconListPageControl
+
+- (void)setHidden:(BOOL)hidden {
+	%orig(hidden || [[ARITweakManager sharedInstance] boolValueForKey:@"hidePageDots"]);
+}
+
+- (void)setAlpha:(CGFloat)alpha {
+	%orig([[ARITweakManager sharedInstance] boolValueForKey:@"hidePageDots"] ? 0 : alpha);
 }
 
 %end
