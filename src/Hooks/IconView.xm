@@ -302,14 +302,16 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	item.localizedTitle = title;
 	item.type = type;
 
-	// SFSymbols
-	UIImage *image = [UIImage systemImageNamed:@"gear"];
-
-	// Tint our image
-	image = [image imageWithTintColor:[UIColor labelColor]];
-
-	// Get data respresentation of the image
-	NSData *iconData = UIImagePNGRepresentation(image);
+	// The tint is baked into the PNG, so keep one per appearance
+	static NSData *iconDataByStyle[3];
+	UIUserInterfaceStyle style = self.traitCollection.userInterfaceStyle;
+	if(style > UIUserInterfaceStyleDark) style = UIUserInterfaceStyleUnspecified;
+	NSData *iconData = iconDataByStyle[style];
+	if(!iconData) {
+		UIColor *tint = [[UIColor labelColor] resolvedColorWithTraitCollection:self.traitCollection];
+		iconData = UIImagePNGRepresentation([[UIImage systemImageNamed:@"gear"] imageWithTintColor:tint]);
+		iconDataByStyle[style] = iconData;
+	}
 	SBSApplicationShortcutCustomImageIcon *icon = [[objc_getClass("SBSApplicationShortcutCustomImageIcon") alloc] initWithImagePNGData:iconData];
 	[item setIcon:icon];
 
