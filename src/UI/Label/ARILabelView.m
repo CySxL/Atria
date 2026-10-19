@@ -45,8 +45,15 @@
         ]];
 
         [self setupTextField:_textField];
+
+        // Hides every page label while the iPad Today view is up, not only the welcome label
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateLabelVisibility:) name:ARIUpdateLabelVisibilityNotification object:nil];
     }
     return self;
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 - (void)updateText:(NSTimer *)timer {

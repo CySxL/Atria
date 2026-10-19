@@ -28,9 +28,6 @@ static NSString *const ARIGeocodeCachePath = @"/var/mobile/Documents/locationQue
         // System time was set listener
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateText:) name:NSSystemClockDidChangeNotification object:nil];
 
-        // Notification for showing/hiding label
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateLabelVisibility:) name:ARIUpdateLabelVisibilityNotification object:nil];
-
         [self _updateWeatherUpdater];
     }
     return self;
