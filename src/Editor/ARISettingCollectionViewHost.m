@@ -39,8 +39,8 @@
 }
 
 - (void)setupGradient {
+    // A mask view must not also sit in the hierarchy
     ARIFadeEffectView *fadeView = [ARIFadeEffectView new];
-    [self addSubview:fadeView];
     fadeView.frame = self.frame;
     [fadeView setupFade:self.superview.bounds];
     self.maskView = fadeView;
