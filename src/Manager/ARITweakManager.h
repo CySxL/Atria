@@ -129,9 +129,6 @@ typedef struct SBRootFolderViewMetrics {
 @property (nonatomic, strong) ARILabelView *_atriaPageLabel;
 @property (nonatomic, strong) ARIBackgroundView *_atriaBackground;
 @property (nonatomic, strong) UITapGestureRecognizer *_atriaTap;
-@property (nonatomic, strong) SBIconListFlowExtendedLayout *_atriaCachedLayout;
-@property (nonatomic, strong) SBIconListFlowExtendedLayout *_originalLayout;
-@property (nonatomic, assign) BOOL _atriaNeedsLayout;
 - (void)_atriaBeginEditing;
 - (void)_atriaUpdateLayoutCache;
 

@@ -40,14 +40,36 @@ typedef struct {
 	UIEdgeInsets origLandscape;
 } ARIRootLayoutInputs;
 
-@interface SBIconListView (ARIRootLayout)
-@property (nonatomic, assign) ARIRootLayoutInputs _atriaLayoutInputs;
+// Everything -layout reads per call sits behind one associated object
+@interface ARIListLayoutState : NSObject
+@property (nonatomic, weak) SBIconListModel *model;
+@property (nonatomic, strong) SBIconListFlowExtendedLayout *originalLayout;
+@property (nonatomic, strong) SBIconListFlowExtendedLayout *cachedLayout;
+@property (nonatomic, assign) BOOL needsLayout;
+@property (nonatomic, assign) BOOL modelTagged;
+@property (nonatomic, assign) ARIRootLayoutInputs inputs;
 @end
 
-static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayoutInputs inputs) {
-	ARIRootLayoutInputs previous = listView._atriaLayoutInputs;
+@implementation ARIListLayoutState
+@end
+
+@interface SBIconListView (ARIRootLayout)
+@property (nonatomic, strong) ARIListLayoutState *_atriaLayoutState;
+@end
+
+static ARIListLayoutState *ARILayoutState(SBIconListView *listView) {
+	ARIListLayoutState *state = listView._atriaLayoutState;
+	if(!state) {
+		state = [ARIListLayoutState new];
+		listView._atriaLayoutState = state;
+	}
+	return state;
+}
+
+static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIListLayoutState *state, ARIRootLayoutInputs inputs) {
+	ARIRootLayoutInputs previous = state.inputs;
 	if(!previous.valid || memcmp(&previous, &inputs, sizeof(inputs)) != 0) return NO;
-	if(!listView._atriaCachedLayout) return NO;
+	if(!state.cachedLayout) return NO;
 	if(inputs.showBackground != (listView._atriaBackground.superview != nil)) return NO;
 	if(inputs.showPageLabel != (listView._atriaPageLabel.superview != nil)) return NO;
 	if(inputs.disableTapGesture == (listView._atriaTap != nil)) return NO;
@@ -58,10 +80,7 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 %property (nonatomic, strong) ARILabelView *_atriaPageLabel;
 %property (nonatomic, strong) ARIBackgroundView *_atriaBackground;
 %property (nonatomic, strong) UITapGestureRecognizer *_atriaTap;
-%property (nonatomic, strong) SBIconListFlowExtendedLayout *_atriaCachedLayout;
-%property (nonatomic, strong) SBIconListFlowExtendedLayout *_originalLayout;
-%property (nonatomic, assign) BOOL _atriaNeedsLayout;
-%property (nonatomic, assign) ARIRootLayoutInputs _atriaLayoutInputs;
+%property (nonatomic, strong) ARIListLayoutState *_atriaLayoutState;
 
 %new
 - (void)_atriaBeginEditing {
@@ -71,37 +90,45 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 - (SBIconListFlowExtendedLayout *)layout {
 	SBIconListFlowExtendedLayout *orig = %orig;
 
+	ARIListLayoutState *state = ARILayoutState(self);
 	SBIconListModel *model = [self model];
-	ARITweakManager *manager = [ARITweakManager sharedInstance];
- 	if(!model._atriaLocation) model._atriaLocation = self.iconLocation;
- 	if([manager.listViewModelMap objectForKey:model] != self)
- 		[manager.listViewModelMap setObject:self forKey:model];
-
-	if(self._originalLayout != orig || self._atriaNeedsLayout) {
-		self._originalLayout = orig;
-		[self _atriaUpdateLayoutCache];
-		[model _atriaUpdateModelGridSizes];
-		self._atriaNeedsLayout = NO;
+	if(state.model != model) {
+		state.model = model;
+		state.modelTagged = NO;
+		if(model) [[ARITweakManager sharedInstance].listViewModelMap setObject:self forKey:model];
+	}
+	// Retried until the location exists, which may be after the first layout
+	if(!state.modelTagged && model) {
+		if(!model._atriaLocation) model._atriaLocation = self.iconLocation;
+		state.modelTagged = model._atriaLocation != nil;
 	}
 
-	return self._atriaCachedLayout ?: orig;
+	if(state.originalLayout != orig || state.needsLayout) {
+		state.originalLayout = orig;
+		[self _atriaUpdateLayoutCache];
+		[model _atriaUpdateModelGridSizes];
+		state.needsLayout = NO;
+	}
+
+	return state.cachedLayout ?: orig;
 }
 
 - (void)layoutIconsNow {
-	self._atriaNeedsLayout = YES;
+	ARILayoutState(self).needsLayout = YES;
 	%orig;
 }
 
 - (void)didAddIconView:(id)arg1 {
 	%orig(arg1);
 	// Once an icon has been added, update layout
-	if(IconListIsRoot(self) && [self.icons count] == 1) self._atriaNeedsLayout = YES;
+	if(IconListIsRoot(self) && [self.icons count] == 1) ARILayoutState(self).needsLayout = YES;
 }
 
 %new
 - (void)_atriaUpdateLayoutCache {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
-	SBIconListFlowExtendedLayout *orig = self._originalLayout;
+	ARIListLayoutState *state = ARILayoutState(self);
+	SBIconListFlowExtendedLayout *orig = state.originalLayout;
 
 	// Update layout
 	if(IconListIsRoot(self)) {
@@ -139,8 +166,8 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 		inputs.origPortrait = orig.layoutConfiguration.portraitLayoutInsets;
 		inputs.origLandscape = orig.layoutConfiguration.landscapeLayoutInsets;
 
-		if(ARIRootLayoutInputsUnchanged(self, inputs)) return;
-		self._atriaLayoutInputs = inputs;
+		if(ARIRootLayoutInputsUnchanged(self, state, inputs)) return;
+		state.inputs = inputs;
 
 		// Add spacing for page label
 		CGFloat topInset = inputs.topInset;
@@ -242,10 +269,10 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 		// Create a new flow layout with our modified (and copied) configuration
 		// layoutConfiguration is readonly on SBIconListFlowExtendedLayout
 		if([manager firmwareVersion] >= 14) {
-			self._atriaCachedLayout = [[objc_getClass("SBIconListFlowExtendedLayout") alloc] initWithLayoutConfiguration:config];
+			state.cachedLayout = [[objc_getClass("SBIconListFlowExtendedLayout") alloc] initWithLayoutConfiguration:config];
 		} else {
 			// SBIconListFlowExtendedLayout does not exist on 13
-			self._atriaCachedLayout = [[objc_getClass("SBIconListFlowLayout") alloc] initWithLayoutConfiguration:config];
+			state.cachedLayout = [[objc_getClass("SBIconListFlowLayout") alloc] initWithLayoutConfiguration:config];
 		}
 	} else if(IconListIsDock(self)) {
 		SBIconListGridLayoutConfiguration *config = orig.layoutConfiguration;
@@ -283,7 +310,7 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 
 		// We don't need to copy our grid config for dock, so set it
 		// to the original object now that we've modified the layout.
-		self._atriaCachedLayout = orig;
+		state.cachedLayout = orig;
 	}
 }
 
