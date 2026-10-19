@@ -240,3 +240,6 @@ Version 1.6.7:
 Version 1.6.9:
 - Show in Dock labels the App Library pod in the floating dock as "Library". It has no name of its own, so it was the one blank spot in a labelled dock
 - The pod follows Show in Dock and the dock Label Y Offset as they change, like the icons beside it
+
+Version 1.7.0:
+- The App Library pod takes its label from the system, so it reads App Library in your language rather than a fixed "Library"
