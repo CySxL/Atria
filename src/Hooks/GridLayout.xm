@@ -8,6 +8,8 @@
 #import <objc/runtime.h>
 #import <substrate.h>
 
+ARI_CACHED_CLASS(ARIWidgetIconClass, "SBWidgetIcon")
+
 // Small macro to round to nearest short assuming x is positive
 #define ROUND_SHORT(x) (short)((x) + 0.5)
 
@@ -134,7 +136,7 @@ static struct SBHIconGridSizeClassSizes generateGridSizeClassSizes(double cols, 
 	CGPoint orig = %orig;
 
 	SBIcon *icon = [self iconAtCoordinate:co metrics:metrics];
-	if([icon isKindOfClass:objc_getClass("SBWidgetIcon")] && IconListIsRoot(self)) {
+	if([icon isKindOfClass:ARIWidgetIconClass()] && IconListIsRoot(self)) {
 		ARITweakManager *manager = [ARITweakManager sharedInstance];
 		NSUInteger iconGridSizeClass = [icon gridSizeClass];
 		// This is the actual widget icon display size

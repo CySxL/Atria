@@ -55,16 +55,6 @@
 @property (nonatomic, assign) CGFloat _atriaShadowScale;
 @end
 
-#define ARI_CACHED_CLASS(fn, name)                        \
-	static Class fn(void) {                               \
-		static Class cls;                                 \
-		static dispatch_once_t token;                     \
-		dispatch_once(&token, ^{                          \
-			cls = objc_getClass(name);                    \
-		});                                               \
-		return cls;                                       \
-	}
-
 static __weak SBIconView *libraryPodIconView;
 
 static void ARIReapplyOffsets(UIView *view, NSInteger depth) {
@@ -83,6 +73,8 @@ ARI_CACHED_CLASS(ARIIconListViewClass, "SBIconListView")
 ARI_CACHED_CLASS(ARIIconViewClass, "SBIconView")
 ARI_CACHED_CLASS(ARIIconControllerClass, "SBIconController")
 ARI_CACHED_CLASS(ARILibraryPodIconClass, "SBHLibraryPodIndicatorIcon")
+ARI_CACHED_CLASS(ARIFolderClipViewClass, "SBFloatyFolderBackgroundClipView")
+ARI_CACHED_CLASS(ARIFolderScrollViewClass, "SBFloatyFolderScrollView")
 
 static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
@@ -274,8 +266,8 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	SBIcon *icon = [self icon];
 	BOOL widgetOrAppIcon = [icon application] || [icon isKindOfClass:ARIWidgetIconClass()] || [icon isKindOfClass:ARIBookmarkIconClass()];
 	// Don't apply shadows in floating dock, because dynamic scaling of the app icons gets weird
-	// Use containsString instead of the macro because we need to check for the suggestions location too
-	if(enabled && !isEditing && widgetOrAppIcon && ![self.location containsString:@"Floating"]) {
+	// Not the macro, since the suggestions location has to be caught too
+	if(enabled && !isEditing && widgetOrAppIcon && ![self.location hasPrefix:@"SBIconLocationFloating"]) {
 		if(self.layer.shadowRadius > 0.0F) return;
 		self.layer.masksToBounds = NO;
 		self.layer.shadowOpacity = 0.4F;
@@ -350,7 +342,7 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 + (void)activateShortcut:(SBSApplicationShortcutItem *)item withBundleIdentifier:(NSString *)bundleID forIconView:(SBIconView *)iconView {
 	NSString *prefix = @"me.lau.atria.edit.";
-	if([[item type] containsString:prefix]) {
+	if([[item type] hasPrefix:prefix]) {
 		NSString *loc = [[item type] stringByReplacingOccurrencesOfString:prefix withString:@""];
 		[[ARIEditManager sharedInstance] toggleEditView:YES withTargetLocation:loc];
 	} else {
@@ -394,9 +386,9 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 %new
 - (BOOL)_atriaIsOpenFolderBackground {
 	UIView *clip = self.superview;
-	if(![clip isKindOfClass:objc_getClass("SBFloatyFolderBackgroundClipView")]) return NO;
+	if(![clip isKindOfClass:ARIFolderClipViewClass()]) return NO;
 	for(UIView *sibling in clip.subviews)
-		if([sibling isKindOfClass:objc_getClass("SBFloatyFolderScrollView")]) return YES;
+		if([sibling isKindOfClass:ARIFolderScrollViewClass()]) return YES;
 	return NO;
 }
 
