@@ -80,6 +80,7 @@ ARI_CACHED_CLASS(ARIBookmarkIconClass, "SBBookmarkIcon")
 ARI_CACHED_CLASS(ARIIconListViewClass, "SBIconListView")
 ARI_CACHED_CLASS(ARIIconViewClass, "SBIconView")
 ARI_CACHED_CLASS(ARIIconControllerClass, "SBIconController")
+ARI_CACHED_CLASS(ARILibraryPodIconClass, "SBHLibraryPodIndicatorIcon")
 
 static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
@@ -233,6 +234,10 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 		self._atriaLastIconListView = (SBIconListView *)self.superview;
 		// Update allowsLabelArea
 		[self setAllowsLabelArea:self.allowsLabelArea];
+	} else if(self.superview && [self.icon isKindOfClass:ARILibraryPodIconClass()]) {
+		// The floating dock's library pod is not in a list view, so nothing else asks it for a label
+		BOOL allows = [self _atriaEffectiveAllowsLabelArea:self.allowsLabelArea];
+		if(allows != self.allowsLabelArea) [self setAllowsLabelArea:allows];
 	}
 	[self _atriaSetupDropShadow:[[[ARIIconControllerClass() sharedInstance] iconManager] isEditing]];
 	[self _atriaUpdateIconContentScale];
@@ -443,12 +448,26 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 %end
 %end
 
+// The label is built from displayNameForLocation:, which is nil for the pod
+%group LibraryPodLabel
+%hook SBHLibraryPodIndicatorIcon
+
+- (NSString *)displayNameForLocation:(NSString *)location {
+	NSString *orig = %orig;
+	if(orig || ![[ARITweakManager sharedInstance] boolValueForKey:@"showDockLabels"]) return orig;
+	return @"Library";
+}
+
+%end
+%end
+
 %ctor {
 	if([[ARITweakManager sharedInstance] isEnabled]) {
 		ARILog(@"Loading hooks from %s", __FILE__);
 		%init();
 
 		if(objc_getClass("SBIconLabelAccessoryView")) %init(LabelOffset);
+		if(ARILibraryPodIconClass()) %init(LibraryPodLabel);
 		if(objc_getClass("SBFolderBackgroundView") && objc_getClass("SBFloatyFolderBackgroundClipView")
 		   && objc_getClass("SBFloatyFolderScrollView"))
 			%init(FloatyFolderBackground);
