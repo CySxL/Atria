@@ -15,7 +15,7 @@ static id fixedLayoutForAppLibrary = nil;
 // Option to disable AppLibrary
 - (BOOL)isAppLibrarySupported {
 	static const BOOL enabled = [[ARITweakManager sharedInstance] boolValueForKey:@"enableAppLibrary"];
-	return enabled;
+	return enabled ? %orig : NO;
 }
 
 %end
@@ -29,7 +29,7 @@ static id fixedLayoutForAppLibrary = nil;
 - (UIInterfaceOrientationMask)ignoresOverscrollOnLastPageOrientations {
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
 	BOOL disableGesture = ![manager boolValueForKey:@"enableAppLibrary"] || [manager boolValueForKey:@"disableAppLibraryGesture"];
-	return disableGesture ? 0 : UIInterfaceOrientationMaskAll;
+	return disableGesture ? 0 : %orig;
 }
 
 %end
