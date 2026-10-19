@@ -686,7 +686,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 
 - (void)onSpringboardLaunched {
 
-    // If floating dock is enabled, default to 6 dock columns. See explanation in init method for why this is done here.
+    // If floating dock is enabled, default to 15 dock columns. See explanation in init method for why this is done here.
     if([self boolValueForKey:@"forceFloatingDock"] || [[self class] isUsingFloatingDock]) {
         [self _registerOption:@"dock_columns"
                   translation:@"Columns"

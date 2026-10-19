@@ -17,7 +17,7 @@ static const CGFloat kARIDotSettleDamping = 0.86;
 @end
 
 // Instead of hooking the page dots directly, we hijack the layout method
-// on the root folder view for optimal performance. Works on iOS 13-15
+// on the root folder view for optimal performance. On iOS 16 the dots sit in the scroll accessory
 %hook SBRootFolderView
 %property (nonatomic, assign) SBRootFolderViewMetrics _atriaCachedMetrics;
 %property (nonatomic, assign) BOOL _atriaHasCachedMetrics;
