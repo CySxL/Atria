@@ -48,7 +48,7 @@
 			<key>label</key>
 			<string>Enable/Disable</string>
 			<key>footerText</key>
-			<string>A respring is required for these settings to change. Enabling "Save State" allows your icon layout to be preserved, even when going to safemode/stock.</string>
+			<string>A respring is required for these settings to change. Enabling "Save Icon State" allows your icon layout to be preserved, even when going to safemode/stock. Turn "Save Icon State" off before turning "Layout Modifications" off, or the stock arrangement replaces the saved one on the next respring.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
