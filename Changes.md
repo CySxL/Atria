@@ -236,3 +236,7 @@ Version 1.6.7:
 - Hide Page Dots works on iOS 16. The dots share a view with the search pill there and the two take turns, so the switch now takes that whole area rather than the dots alone
 - Page Labels' Side Inset and Vertical Inset move the label again. They had stopped applying in 1.6.4
 - The page dot offsets and the page label insets go down to -850, far enough to put either at the top of the screen
+
+Version 1.6.9:
+- Show in Dock labels the App Library pod in the floating dock as "Library". It has no name of its own, so it was the one blank spot in a labelled dock
+- The pod follows Show in Dock and the dock Label Y Offset as they change, like the icons beside it
