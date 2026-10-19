@@ -240,8 +240,13 @@
     // Set up initial layout anchor for y pos
     BOOL openFromTop = [[ARITweakManager sharedInstance] intValueForKey:@"editorOpenFrom"] == 1;
     _topAnchor = [self.topAnchor constraintEqualToAnchor:self.superview.topAnchor
-                                                constant:openFromTop ? 50 : _editorSpace - _heightAnchor.constant];
+                                                constant:openFromTop ? [self _topLimit] : _editorSpace - _heightAnchor.constant];
     _topAnchor.active = YES;
+}
+
+// Below the status bar or the island, whichever this model has
+- (CGFloat)_topLimit {
+    return self.superview.safeAreaInsets.top;
 }
 
 - (void)keyboardWillShow:(NSNotification *)notification {
@@ -263,7 +268,7 @@
         _panTouchdownOffset = [recognizer locationInView:self.superview].y - self.frame.origin.y;
     } else if(recognizer.state == UIGestureRecognizerStateChanged) {
         // The finger is the animation, so follow it without starting one per touch sample
-        _topAnchor.constant = CLAMP([recognizer locationInView:self.superview].y - _panTouchdownOffset, 50, _editorSpace - _heightAnchor.constant);
+        _topAnchor.constant = CLAMP([recognizer locationInView:self.superview].y - _panTouchdownOffset, [self _topLimit], _editorSpace - _heightAnchor.constant);
     }
 }
 
@@ -277,7 +282,7 @@
                      animations:^{
                          [self.superview layoutIfNeeded];
                          _topAnchor.constant =
-                             CLAMP(position, 50, _editorSpace - _heightAnchor.constant);
+                             CLAMP(position, [self _topLimit], _editorSpace - _heightAnchor.constant);
                          [self.superview layoutIfNeeded];
                      }];
 }
