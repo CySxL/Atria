@@ -23,18 +23,7 @@ static NSString *const ARIGeocodeCachePath = @"/var/mobile/Documents/locationQue
     if(self) {
         _calendar = [[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
 
-        __weak __typeof(self) weakSelf = self;
-        _updateTimer = [NSTimer scheduledTimerWithTimeInterval:60
-                                                       repeats:YES
-                                                         block:^(NSTimer *timer) {
-                                                             __typeof(self) strongSelf = weakSelf;
-                                                             if(!strongSelf) {
-                                                                 [timer invalidate];
-                                                                 return;
-                                                             }
-                                                             [strongSelf _refreshWeatherIfDue];
-                                                             [strongSelf updateText:timer];
-                                                         }];
+        [self _startUpdateTimer];
 
         // System time was set listener
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateText:) name:NSSystemClockDidChangeNotification object:nil];
@@ -45,6 +34,28 @@ static NSString *const ARIGeocodeCachePath = @"/var/mobile/Documents/locationQue
         [self _updateWeatherUpdater];
     }
     return self;
+}
+
+- (void)_startUpdateTimer {
+    if([_updateTimer isValid]) return;
+    __weak __typeof(self) weakSelf = self;
+    _updateTimer = [NSTimer scheduledTimerWithTimeInterval:60
+                                                   repeats:YES
+                                                     block:^(NSTimer *timer) {
+                                                         __typeof(self) strongSelf = weakSelf;
+                                                         if(!strongSelf) {
+                                                             [timer invalidate];
+                                                             return;
+                                                         }
+                                                         [strongSelf _refreshWeatherIfDue];
+                                                         [strongSelf updateText:timer];
+                                                     }];
+}
+
+// removeFromSuperview stops the timer, and the same label can be added back
+- (void)didMoveToSuperview {
+    [super didMoveToSuperview];
+    if(self.superview) [self _startUpdateTimer];
 }
 
 - (BOOL)_needsWeather {
