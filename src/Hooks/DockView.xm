@@ -109,13 +109,21 @@ static NSUInteger ARIMaxRecents() {
 
 %end
 
+// iPadOS keeps its own switches for these, so leave them alone until Atria's are set
+static BOOL ARIOverridesFloatingDockDefault(NSString *key) {
+    ARITweakManager *manager = [ARITweakManager sharedInstance];
+    return [manager boolValueForKey:@"forceFloatingDock"] || [manager.preferences objectForKey:key];
+}
+
 %hook SBFloatingDockDefaults
 
 - (BOOL)recentsEnabled {
+    if(!ARIOverridesFloatingDockDefault(@"floatingDockRecents")) return %orig;
     return [[ARITweakManager sharedInstance] boolValueForKey:@"floatingDockRecents"];
 }
 
 - (BOOL)appLibraryEnabled {
+    if(!ARIOverridesFloatingDockDefault(@"floatingDockAppLibrary")) return %orig;
     return [[ARITweakManager sharedInstance] boolValueForKey:@"floatingDockAppLibrary"];
 }
 
