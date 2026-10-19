@@ -6,8 +6,19 @@
 #import "Shared.h"
 #import "../Manager/ARITweakManager.h"
 
+#import <objc/runtime.h>
+
 @interface SBFloatingDockPlatterView : UIView
 @property (nonatomic, strong) UIView *backgroundView;
+@end
+
+@interface SBDockView (ARIBackgroundAlpha)
+@property (nonatomic, strong) NSNumber *_atriaSystemBackgroundAlpha;
+- (CGFloat)backgroundAlpha;
+@end
+
+@interface SBFloatingDockView (ARIBackgroundAlpha)
+@property (nonatomic, assign) BOOL _atriaWroteBackgroundOpacity;
 @end
 
 static SBFloatingDockController *fdController;
@@ -18,11 +29,12 @@ static NSUInteger ARIMaxRecents() {
 }
 
 %hook SBDockView
+%property (nonatomic, strong) NSNumber *_atriaSystemBackgroundAlpha;
 
 %new
 - (void)_atriaUpdateDockForSettingsChanged {
-    ARITweakManager *manager = [ARITweakManager sharedInstance];
-    [self setBackgroundAlpha:[manager floatValueForKey:@"dock_bg"]];
+    NSNumber *system = self._atriaSystemBackgroundAlpha;
+    [self setBackgroundAlpha:system ? [system doubleValue] : 1];
 }
 
 - (CGFloat)dockHeight {
@@ -31,13 +43,15 @@ static NSUInteger ARIMaxRecents() {
     return %orig;
 }
 
-// Override background alpha
+// Scale whatever SpringBoard asks for, so its own fades still happen
 - (void)setBackgroundAlpha:(CGFloat)alpha {
-    if([[ARITweakManager sharedInstance] boolValueForKey:@"disableDock"]) {
+    self._atriaSystemBackgroundAlpha = @(alpha);
+    ARITweakManager *manager = [ARITweakManager sharedInstance];
+    if([manager boolValueForKey:@"disableDock"]) {
         %orig(0);
         return;
     }
-    %orig([[ARITweakManager sharedInstance] floatValueForKey:@"dock_bg"]);
+    %orig(alpha * [manager floatValueForKey:@"dock_bg"]);
 }
 
 - (void)traitCollectionDidChange:(UITraitCollection *)old {
@@ -47,6 +61,17 @@ static NSUInteger ARIMaxRecents() {
     });
 }
 
+%end
+
+%group DockAlphaGetter
+%hook SBDockView
+
+- (CGFloat)backgroundAlpha {
+    NSNumber *system = self._atriaSystemBackgroundAlpha;
+    return system ? [system doubleValue] : %orig;
+}
+
+%end
 %end
 
 %hook SBFloatingDockController
@@ -130,6 +155,7 @@ static NSUInteger ARIMaxRecents() {
 static __weak SBFloatingDockView *presentedFloatingDockView;
 
 %hook SBFloatingDockView
+%property (nonatomic, assign) BOOL _atriaWroteBackgroundOpacity;
 
 %new
 + (SBFloatingDockView *)_atriaPresentedDockView {
@@ -138,7 +164,10 @@ static __weak SBFloatingDockView *presentedFloatingDockView;
 
 %new
 - (void)_atriaUpdateDockForSettingsChanged {
-    self.backgroundView.layer.opacity = [[ARITweakManager sharedInstance] floatValueForKey:@"dock_bg"];
+    float alpha = [[ARITweakManager sharedInstance] floatValueForKey:@"dock_bg"];
+    if(alpha == 1 && !self._atriaWroteBackgroundOpacity) return;
+    self._atriaWroteBackgroundOpacity = alpha != 1;
+    self.backgroundView.layer.opacity = alpha;
 }
 
 - (void)didMoveToSuperview {
@@ -159,7 +188,8 @@ static __weak SBFloatingDockView *presentedFloatingDockView;
 %hook SBFloatingDockPlatterView
 
 - (void)setBackgroundView:(UIView *)arg1 {
-    arg1.layer.opacity = [[ARITweakManager sharedInstance] floatValueForKey:@"dock_bg"];
+    float alpha = [[ARITweakManager sharedInstance] floatValueForKey:@"dock_bg"];
+    if(alpha != 1) arg1.layer.opacity = alpha;
     %orig(arg1);
 }
 
@@ -169,5 +199,7 @@ static __weak SBFloatingDockView *presentedFloatingDockView;
 	if([[ARITweakManager sharedInstance] isEnabled]) {
 		ARILog(@"Loading hooks from %s", __FILE__);
 		%init();
+		if(class_getInstanceMethod(objc_getClass("SBDockView"), @selector(backgroundAlpha)))
+			%init(DockAlphaGetter);
 	}
 }
