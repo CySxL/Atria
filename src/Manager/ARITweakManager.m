@@ -504,6 +504,10 @@ static const NSTimeInterval kARISettledDuration = 0.6;
                 [self _refreshIconViewsInListView:[fdController suggestionsIconListView]];
                 [[fdController userIconListView] layoutIconsNow];
                 [[fdController suggestionsIconListView] layoutIconsNow];
+                // Held by the pod itself, so this does not go through the controller on iPhone
+                SBIconView *pod = [objc_getClass("SBIconView") _atriaLibraryPodIconView];
+                [self _refreshIconView:pod];
+                [pod setNeedsLayout];
                 if([[self class] shouldTouchFloatingDockViews]) {
                     SBFloatingDockViewController *fdvc = [fdController floatingDockViewController];
                     if([fdvc respondsToSelector:@selector(libraryPodIconView)])

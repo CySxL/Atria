@@ -86,6 +86,7 @@ typedef struct SBRootFolderViewMetrics {
 - (CGFloat)iconImageCornerRadius;
 - (void)_atriaUpdateIconContentScale;
 - (void)_atriaApplyDockLabelOffset;
++ (SBIconView *)_atriaLibraryPodIconView;
 - (BOOL)_atriaEffectiveAllowsLabelArea:(BOOL)allows;
 - (void)_atriaSetupDropShadow:(BOOL)isEditing;
 - (void)_atriaGenerateDropShadow:(CGRect)rect;

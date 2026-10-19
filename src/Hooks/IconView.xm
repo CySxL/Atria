@@ -65,6 +65,8 @@
 		return cls;                                       \
 	}
 
+static __weak SBIconView *libraryPodIconView;
+
 static void ARIReapplyOffsets(UIView *view, NSInteger depth) {
 	if(!view || depth > 3) return;
 	for(UIView *subview in view.subviews) {
@@ -236,6 +238,7 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 		[self setAllowsLabelArea:self.allowsLabelArea];
 	} else if(self.superview && [self.icon isKindOfClass:ARILibraryPodIconClass()]) {
 		// The floating dock's library pod is not in a list view, so nothing else asks it for a label
+		libraryPodIconView = self;
 		BOOL allows = [self _atriaEffectiveAllowsLabelArea:self.allowsLabelArea];
 		if(allows != self.allowsLabelArea) [self setAllowsLabelArea:allows];
 	}
@@ -289,6 +292,11 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 - (void)setBounds:(CGRect)arg1 {
 	%orig(arg1);
 	[self _atriaGenerateDropShadow:arg1];
+}
+
+%new
++ (SBIconView *)_atriaLibraryPodIconView {
+	return libraryPodIconView;
 }
 
 %new
