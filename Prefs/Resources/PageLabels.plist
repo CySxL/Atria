@@ -33,7 +33,7 @@
 			<key>cell</key>
 			<string>PSSwitchCell</string>
 			<key>default</key>
-			<true/>
+			<false/>
 			<key>defaults</key>
 			<string>me.lau.AtriaPrefs</string>
 			<key>key</key>

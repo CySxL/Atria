@@ -86,7 +86,7 @@ static inline id ARIScalar(id value) {
                    upperLimit:0];
         [self _registerOption:@"showWeatherIcon"
                   translation:nil
-                 defaultValue:@(YES)
+                 defaultValue:@(NO)
                    lowerLimit:0
                    upperLimit:0];
         [self _registerOption:@"weatherRefreshInterval"
