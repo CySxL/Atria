@@ -27,6 +27,7 @@ static inline id ARIScalar(id value) {
 
 @implementation ARITweakManager {
     ARIWeakBox *_dockListViewRef;
+    ARIWeakBox *_hiddenDotsRef;
     BOOL _enabled;
     NSUserDefaults *_preferences;
     NSMutableOrderedSet<NSString *> *_orderedSettingKeys;
@@ -628,22 +629,39 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 - (void)applyPageDotVisibility {
     SBRootFolderView *rootFolderView = [self rootFolderView];
     BOOL hide = [self boolValueForKey:@"hidePageDots"];
+    if(!_hiddenDotsRef) _hiddenDotsRef = [ARIWeakBox new];
 
+    // Only the view this process hid is ever unhidden, so with the switch off nothing is touched
     if(_firmwareVersion < 16) {
-        rootFolderView.pageControl.hidden = hide;
+        UIView *pageControl = rootFolderView.pageControl;
+        if(!pageControl) return;
+        if(hide) {
+            if(!pageControl.hidden) pageControl.hidden = YES;
+            _hiddenDotsRef.object = pageControl;
+        } else if(_hiddenDotsRef.object == pageControl) {
+            _hiddenDotsRef.object = nil;
+            pageControl.hidden = NO;
+        }
         return;
     }
 
     SBFolderScrollAccessoryView *accessory = (SBFolderScrollAccessoryView *)rootFolderView.scrollAccessoryView;
     if(!accessory) return;
-    accessory.hidden = hide;
+    UIView *dots = [accessory respondsToSelector:@selector(pageControl)] ? accessory.pageControl : nil;
 
-    if(![accessory respondsToSelector:@selector(pageControl)]) return;
-    UIView *dots = accessory.pageControl;
-    dots.hidden = hide;
-    if(hide)
-        dots.alpha = 0;
-    else if([accessory respondsToSelector:@selector(_applyCurrentMode)])
+    if(hide) {
+        if(!accessory.hidden) accessory.hidden = YES;
+        if(!dots.hidden) dots.hidden = YES;
+        if(dots.alpha != 0) dots.alpha = 0;
+        _hiddenDotsRef.object = accessory;
+        return;
+    }
+
+    if(_hiddenDotsRef.object != accessory) return;
+    _hiddenDotsRef.object = nil;
+    accessory.hidden = NO;
+    dots.hidden = NO;
+    if([accessory respondsToSelector:@selector(_applyCurrentMode)])
         [accessory _applyCurrentMode];
     else
         dots.alpha = 1;
