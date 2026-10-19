@@ -4,13 +4,92 @@
 //
 
 #import "ARIRootListController.h"
+#import "../../src/ARIPaths.h"
 #import "../../src/UI/Splash/ARISplashViewController.h"
+
+#import <Preferences/PSTableCell.h>
+
+#if defined(THEOS_PACKAGE_SCHEME_ROOTHIDE)
+#define PACKAGE_SCHEME "roothide"
+#elif defined(THEOS_PACKAGE_SCHEME_ROOTLESS)
+#define PACKAGE_SCHEME "rootless"
+#elif defined(THEOS_PACKAGE_SCHEME_ROOTFUL)
+#define PACKAGE_SCHEME "rootful"
+#else
+#error theos defined no package scheme
+#endif
+
+static const CGFloat kARIIconSide = 80.0;
+
+@interface ARIHeaderCell : PSTableCell
+@end
+
+@implementation ARIHeaderCell
+
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)identifier specifier:(PSSpecifier *)specifier {
+    self = [super initWithStyle:style reuseIdentifier:identifier specifier:specifier];
+    if(!self) return nil;
+
+    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:ARIPrefsBundlePath(@"/full.png")]];
+    icon.translatesAutoresizingMaskIntoConstraints = NO;
+    icon.clipsToBounds = YES;
+    icon.layer.cornerCurve = kCACornerCurveContinuous;
+    icon.layer.cornerRadius = kARIIconSide * 0.225;
+    [self.contentView addSubview:icon];
+
+    UILabel *version = [[UILabel alloc] init];
+    version.text = @"Version " PACKAGE_VERSION "\n" PACKAGE_SCHEME;
+    version.numberOfLines = 2;
+    version.font = [UIFont systemFontOfSize:14.0];
+    version.textColor = [UIColor systemGrayColor];
+    version.textAlignment = NSTextAlignmentCenter;
+    version.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.contentView addSubview:version];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [icon.widthAnchor constraintEqualToConstant:kARIIconSide],
+        [icon.heightAnchor constraintEqualToConstant:kARIIconSide],
+        [icon.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor],
+        [icon.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10.0],
+        [version.topAnchor constraintEqualToAnchor:icon.bottomAnchor constant:8.0],
+        [version.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor],
+        [version.widthAnchor constraintEqualToAnchor:self.contentView.widthAnchor]
+    ]];
+
+    return self;
+}
+
+- (void)setSeparatorStyle:(UITableViewCellSeparatorStyle)style {
+    [super setSeparatorStyle:UITableViewCellSeparatorStyleNone];
+}
+
+- (void)setBackgroundColor:(UIColor *)color {
+    [super setBackgroundColor:[UIColor clearColor]];
+}
+
+- (UITableViewCellSelectionStyle)selectionStyle {
+    return UITableViewCellSelectionStyleNone;
+}
+
+@end
 
 @implementation ARIRootListController
 
 - (NSArray *)specifiers {
     if(!_specifiers) {
-        _specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
+        NSMutableArray *specifiers = [NSMutableArray array];
+
+        PSSpecifier *header = [PSSpecifier preferenceSpecifierNamed:@"" target:self set:NULL get:NULL detail:nil cell:PSStaticTextCell edit:nil];
+        [header setProperty:[ARIHeaderCell class] forKey:@"cellClass"];
+        [header setProperty:@142 forKey:@"height"];
+        [specifiers addObject:header];
+
+        PSSpecifier *group = [PSSpecifier emptyGroupSpecifier];
+        [group setProperty:@"In order to edit layout, 3D touch a homescreen icon, or triple tap behind them (on your wallpaper)" forKey:@"footerText"];
+        [specifiers addObject:group];
+
+        [specifiers addObjectsFromArray:[self loadSpecifiersFromPlistName:@"Root" target:self]];
+        _specifiers = specifiers;
     }
 
     return _specifiers;
