@@ -456,6 +456,18 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 %end
 %end
 
+// The App Library's own name, as its search field shows it
+static NSString *ARILibraryPodName(void) {
+	static NSString *name;
+	static dispatch_once_t token;
+	dispatch_once(&token, ^{
+		NSString *key = @"APP_LIBRARY_SEARCH_PLACEHOLDER";
+		NSString *found = [[NSBundle bundleWithIdentifier:@"com.apple.SpringBoardHome"] localizedStringForKey:key value:nil table:@"SpringBoardHome"];
+		name = (found.length && ![found isEqualToString:key]) ? found : @"Library";
+	});
+	return name;
+}
+
 // The label is built from displayNameForLocation:, which is nil for the pod
 %group LibraryPodLabel
 %hook SBHLibraryPodIndicatorIcon
@@ -463,7 +475,7 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 - (NSString *)displayNameForLocation:(NSString *)location {
 	NSString *orig = %orig;
 	if(orig || ![[ARITweakManager sharedInstance] boolValueForKey:@"showDockLabels"]) return orig;
-	return @"Library";
+	return ARILibraryPodName();
 }
 
 %end
