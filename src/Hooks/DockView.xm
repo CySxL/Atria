@@ -6,15 +6,12 @@
 #import "Shared.h"
 #import "../Manager/ARITweakManager.h"
 
-#import <objc/runtime.h>
-
 @interface SBFloatingDockPlatterView : UIView
 @property (nonatomic, strong) UIView *backgroundView;
 @end
 
 @interface SBDockView (ARIBackgroundAlpha)
 @property (nonatomic, strong) NSNumber *_atriaSystemBackgroundAlpha;
-- (CGFloat)backgroundAlpha;
 @end
 
 @interface SBFloatingDockView (ARIBackgroundAlpha)
@@ -61,17 +58,6 @@ static NSUInteger ARIMaxRecents() {
     });
 }
 
-%end
-
-%group DockAlphaGetter
-%hook SBDockView
-
-- (CGFloat)backgroundAlpha {
-    NSNumber *system = self._atriaSystemBackgroundAlpha;
-    return system ? [system doubleValue] : %orig;
-}
-
-%end
 %end
 
 %hook SBFloatingDockController
@@ -207,7 +193,5 @@ static __weak SBFloatingDockView *presentedFloatingDockView;
 	if([[ARITweakManager sharedInstance] isEnabled]) {
 		ARILog(@"Loading hooks from %s", __FILE__);
 		%init();
-		if(class_getInstanceMethod(objc_getClass("SBDockView"), @selector(backgroundAlpha)))
-			%init(DockAlphaGetter);
 	}
 }
