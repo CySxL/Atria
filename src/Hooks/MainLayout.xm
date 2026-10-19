@@ -223,11 +223,13 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIRootLayout
 				self._atriaPageLabel = nil;
 			}
 		} else {
-			// Create label if needed
-			if(!self._atriaPageLabel) {
-				if (isFirstIconList) self._atriaPageLabel = [[ARIWelcomeLabelView alloc] init];
-				else self._atriaPageLabel = [[ARIPageLabelView alloc] init];
+			// A reorder can move this list view in or out of first place
+			Class labelClass = isFirstIconList ? [ARIWelcomeLabelView class] : [ARIPageLabelView class];
+			if(self._atriaPageLabel && ![self._atriaPageLabel isMemberOfClass:labelClass]) {
+				[self._atriaPageLabel removeFromSuperview];
+				self._atriaPageLabel = nil;
 			}
+			if(!self._atriaPageLabel) self._atriaPageLabel = [[labelClass alloc] init];
 			// Add to superview and add inital anchors
 			// The dynamic label will constrain itself
 			if(!self._atriaPageLabel.superview) [self addSubview:self._atriaPageLabel];
