@@ -76,16 +76,18 @@
             _queueDockLayout = NO;
         }
 
+        // Reopening before this finishes replaces editView, so finish only the view that was closing
+        UIView *closing = self.editView;
         [UIView animateWithDuration:0.15f
             delay:0.0f
             options:UIViewAnimationOptionCurveEaseIn
             animations:^{
-                self.editView.alpha = 0.0F;
-                self.editView.transform = CGAffineTransformMakeScale(0.2F, 0.2F);
+                closing.alpha = 0.0F;
+                closing.transform = CGAffineTransformMakeScale(0.2F, 0.2F);
             }
             completion:^(BOOL finished) {
-                [self.editView removeFromSuperview];
-                self.editView = nil;
+                [closing removeFromSuperview];
+                if(self.editView == closing) self.editView = nil;
             }];
     }
 }
