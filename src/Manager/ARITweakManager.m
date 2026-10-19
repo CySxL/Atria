@@ -20,6 +20,11 @@ static const NSTimeInterval kARISettledDuration = 0.6;
 @implementation ARIWeakBox
 @end
 
+// Anything read from the plist may be hand edited, so only these take a scalar getter
+static inline id ARIScalar(id value) {
+    return [value isKindOfClass:[NSNumber class]] || [value isKindOfClass:[NSString class]] ? value : nil;
+}
+
 @implementation ARITweakManager {
     ARIWeakBox *_dockListViewRef;
     BOOL _enabled;
@@ -62,7 +67,8 @@ static const NSTimeInterval kARISettledDuration = 0.6;
         _shyLabelsInstalled = [[NSFileManager defaultManager] fileExistsAtPath:ARIDylibPath(@"ShyLabels.dylib")];
         // NSUserDefaults to get what values the user set
         _preferences = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
-        _enabled = [_preferences objectForKey:@"enabled"] ? [[_preferences objectForKey:@"enabled"] boolValue] : YES;
+        id enabled = ARIScalar([_preferences objectForKey:@"enabled"]);
+        _enabled = enabled ? [enabled boolValue] : YES;
         _listViewModelMap = [NSMapTable mapTableWithKeyOptions:NSPointerFunctionsWeakMemory valueOptions:NSPointerFunctionsWeakMemory];
         _prefixCache = [NSMutableDictionary new];
         _pageKeyCache = [NSMutableDictionary new];
@@ -391,10 +397,11 @@ static const NSTimeInterval kARISettledDuration = 0.6;
     [self _migrateSettingFromKey:@"saveState" toKey:@"_saveState"];
 
     // Update list of per-page layout enabled list views
-    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:ARIPerPageListViewsKey] mutableCopy];
+    NSMutableArray *perPage = [[self _perPageListViews] mutableCopy];
     NSUInteger itemCount = [perPage count];
     if(itemCount > 0) {
         for(NSUInteger i = 0; i < itemCount; i++) {
+            if(![perPage[i] isKindOfClass:[NSString class]]) continue;
             NSString *newValue = [NSString stringWithFormat:@"Page%@_", [perPage[i] stringByReplacingOccurrencesOfString:@"_" withString:@""]];
             [perPage replaceObjectAtIndex:i withObject:newValue];
         }
@@ -740,16 +747,20 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 
 // Get/set preference values
 
+- (id)_scalarValueForKey:(NSString *)key {
+    return ARIScalar([self rawValueForKey:key]) ?: ARIScalar(_optionsRegistry[key].defaultValue);
+}
+
 - (int)intValueForKey:(NSString *)key {
-    return (int)[[self rawValueForKey:key] integerValue];
+    return (int)[[self _scalarValueForKey:key] integerValue];
 }
 
 - (BOOL)boolValueForKey:(NSString *)key {
-    return [[self rawValueForKey:key] boolValue];
+    return [[self _scalarValueForKey:key] boolValue];
 }
 
 - (float)floatValueForKey:(NSString *)key {
-    return [[self rawValueForKey:key] floatValue];
+    return [[self _scalarValueForKey:key] floatValue];
 }
 
 - (id)rawValueForKey:(NSString *)key {
@@ -775,10 +786,10 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     _usesHsLabelOffset |= [self floatValueForKey:@"hs_label_offset"] != 0;
     if(_usesHsLabelOffset || !_hasPerPageLayouts) return;
 
-    for(NSString *prefix in (NSArray *)[_preferences objectForKey:ARIPerPageListViewsKey]) {
+    for(NSString *prefix in [self _perPageListViews]) {
         if(![prefix isKindOfClass:[NSString class]]) continue;
         NSString *key = [self _pageKeyForPrefix:prefix key:@"hs_label_offset"];
-        if([[_preferences objectForKey:key] floatValue] == 0) continue;
+        if([ARIScalar([_preferences objectForKey:key]) floatValue] == 0) continue;
         _usesHsLabelOffset = YES;
         return;
     }
@@ -843,7 +854,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (int)intValueForKey:(NSString *)key forListView:(SBIconListView *)list {
-    id value = [self _pageValueForKey:key forListView:list];
+    id value = ARIScalar([self _pageValueForKey:key forListView:list]);
     return value ? (int)[value integerValue] : [self intValueForKey:key];
 }
 
@@ -854,7 +865,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (BOOL)boolValueForKey:(NSString *)key forListView:(SBIconListView *)list {
-    id value = [self _pageValueForKey:key forListView:list];
+    id value = ARIScalar([self _pageValueForKey:key forListView:list]);
     return value ? [value boolValue] : [self boolValueForKey:key];
 }
 
@@ -869,7 +880,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (float)floatValueForKey:(NSString *)key forListView:(SBIconListView *)list {
-    id value = [self _pageValueForKey:key forListView:list];
+    id value = ARIScalar([self _pageValueForKey:key forListView:list]);
     return value ? [value floatValue] : [self floatValueForKey:key];
 }
 
@@ -914,8 +925,13 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 
 // Per-page layout creation/deletion and management
 
+- (NSArray *)_perPageListViews {
+    id perPage = [_preferences objectForKey:ARIPerPageListViewsKey];
+    return [perPage isKindOfClass:[NSArray class]] ? perPage : nil;
+}
+
 - (void)reloadPreferenceState {
-    _hasPerPageLayouts = [(NSArray *)[_preferences objectForKey:ARIPerPageListViewsKey] count] > 0;
+    _hasPerPageLayouts = [[self _perPageListViews] count] > 0;
 
     _hasPageScopedKeys = _hasPerPageLayouts;
     if(!_hasPageScopedKeys) {
@@ -938,7 +954,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
         if([key hasPrefix:prefix]) [self resetValueForKey:key];
     }
 
-    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:ARIPerPageListViewsKey] mutableCopy] ?: [NSMutableArray new];
+    NSMutableArray *perPage = [[self _perPageListViews] mutableCopy] ?: [NSMutableArray new];
     [perPage removeObject:prefix];
     [self setValue:perPage forKey:ARIPerPageListViewsKey];
     [self reloadPreferenceState];
@@ -950,7 +966,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
     // Freeze list view settings to what the current global config is
     NSString *prefix = [self prefixForListView:listView];
 
-    NSMutableArray *perPage = [(NSArray *)[self rawValueForKey:ARIPerPageListViewsKey] mutableCopy] ?: [NSMutableArray new];
+    NSMutableArray *perPage = [[self _perPageListViews] mutableCopy] ?: [NSMutableArray new];
     [perPage addObject:prefix];
     [self setValue:perPage forKey:ARIPerPageListViewsKey];
 
@@ -963,9 +979,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (BOOL)doesCustomConfigForListViewExist:(SBIconListView *)listView {
-    NSArray *perPage = [self rawValueForKey:ARIPerPageListViewsKey];
-    if(!perPage) return NO;
-    return [perPage containsObject:[self prefixForListView:listView]];
+    return [[self _perPageListViews] containsObject:[self prefixForListView:listView]];
 }
 
 + (UIInterfaceOrientation)currentDeviceOrientation {
