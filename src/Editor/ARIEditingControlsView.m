@@ -213,11 +213,11 @@
         NSNumber *num = [nf numberFromString:self.currentValueTextEntry.text];
 
         if(num) {
-            // I INTENTIONALLY allow numbers outside of the slider range
-            // If you want 1000000 icons in a row, be my guest.
+            // Numbers outside the slider range are allowed, except where UIKit cannot take them
             ARITweakManager *manager = [ARITweakManager sharedInstance];
-            [manager setValue:num
-                       forKey:[self _adjustedKeyForCurrentOrientation]
+            NSString *key = [self _adjustedKeyForCurrentOrientation];
+            [manager setValue:[manager clampedValue:num forKey:key]
+                       forKey:key
                   forListView:[[ARIEditManager sharedInstance] currentIconListViewIfSinglePage]];
             [manager updateLayoutForEditing:YES];
 

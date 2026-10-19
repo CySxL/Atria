@@ -849,7 +849,8 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 
 - (NSUInteger)gridValueForKey:(NSString *)key forListView:(SBIconListView *)list {
     int value = [self intValueForKey:key forListView:list];
-    return value < 1 ? 1 : (NSUInteger)value;
+    if(value < 1) return 1;
+    return MIN((NSUInteger)value, ARIMaxGridCount);
 }
 
 - (BOOL)boolValueForKey:(NSString *)key forListView:(SBIconListView *)list {
@@ -870,6 +871,31 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 - (float)floatValueForKey:(NSString *)key forListView:(SBIconListView *)list {
     id value = [self _pageValueForKey:key forListView:list];
     return value ? [value floatValue] : [self floatValueForKey:key];
+}
+
+- (float)scaleValueForKey:(NSString *)key forListView:(SBIconListView *)list {
+    ARIOption *option = _optionsRegistry[key];
+    float value = [self floatValueForKey:key forListView:list];
+    return fminf(fmaxf(value, option.lowerLimit), option.upperLimit);
+}
+
+- (NSNumber *)clampedValue:(NSNumber *)value forKey:(NSString *)key {
+    static NSSet<NSString *> *gridKeys, *scaleKeys;
+    static dispatch_once_t token;
+    dispatch_once(&token, ^{
+        gridKeys = [NSSet setWithArray:@[ @"hs_rows", @"hs_columns", @"dock_rows", @"dock_columns" ]];
+        scaleKeys = [NSSet setWithArray:@[ @"hs_iconScale", @"hs_widgetIconScale", @"dock_iconScale" ]];
+    });
+
+    if([gridKeys containsObject:key]) {
+        NSInteger count = [value integerValue];
+        return @(count < 1 ? 1 : MIN((NSUInteger)count, ARIMaxGridCount));
+    }
+    if([scaleKeys containsObject:key]) {
+        ARIOption *option = _optionsRegistry[key];
+        return @(fminf(fmaxf([value floatValue], option.lowerLimit), option.upperLimit));
+    }
+    return value;
 }
 
 - (void)setValue:(id)val forKey:(NSString *)key forListView:(SBIconListView *)listView {

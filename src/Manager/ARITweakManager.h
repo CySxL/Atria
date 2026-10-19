@@ -12,6 +12,8 @@ static NSString *const ARIPreferenceDomain = @"me.lau.AtriaPrefs";
 static NSString *const ARIPerPageListViewsKey = @"_perPageListViews";
 
 static const NSTimeInterval ARIDragApplyInterval = 1.0 / 60.0;
+// Grid sizes are shorts, and 0x7F is what SpringBoard is handed once launched
+static const NSUInteger ARIMaxGridCount = 0x7F;
 
 typedef struct SBHIconGridSize {
     short width;
@@ -251,6 +253,8 @@ typedef struct SBRootFolderViewMetrics {
 - (id)rawValueForKey:(NSString *)key forListView:(SBIconListView *)list;
 - (NSString *)stringValueForKey:(NSString *)key forListView:(SBIconListView *)list;
 - (float)floatValueForKey:(NSString *)key forListView:(SBIconListView *)list;
+- (float)scaleValueForKey:(NSString *)key forListView:(SBIconListView *)list;
+- (NSNumber *)clampedValue:(NSNumber *)value forKey:(NSString *)key;
 - (void)setValue:(id)val forKey:(NSString *)key forListView:(SBIconListView *)listView;
 - (void)resetValueForKey:(NSString *)key forListView:(SBIconListView *)listView;
 

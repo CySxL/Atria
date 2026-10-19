@@ -130,9 +130,9 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	CGFloat orig = %orig;
 	if([self isFolderIcon]) {
 		if(IconIsInRoot(self)) {
-			return [manager floatValueForKey:@"hs_iconScale" forListView:self._atriaLastIconListView];
+			return [manager scaleValueForKey:@"hs_iconScale" forListView:self._atriaLastIconListView];
 		} else if(IconIsInDock(self)) {
-			return [manager floatValueForKey:@"dock_iconScale"];
+			return [manager scaleValueForKey:@"dock_iconScale" forListView:nil];
 		}
 	}
 
@@ -185,12 +185,12 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 	CGFloat customScale = 1;
 	BOOL isWidget = [self.icon isKindOfClass:ARIWidgetIconClass()];
 	if(isWidget) {
-		customScale = [manager floatValueForKey:@"hs_widgetIconScale" forListView:self._atriaLastIconListView];
+		customScale = [manager scaleValueForKey:@"hs_widgetIconScale" forListView:self._atriaLastIconListView];
 	} else {
 		if(IconIsInRoot(self) || (IconIsInFolder(self) && [manager boolValueForKey:@"scaleInsideFolders"])) {
-			customScale = [manager floatValueForKey:@"hs_iconScale" forListView:self._atriaLastIconListView];
+			customScale = [manager scaleValueForKey:@"hs_iconScale" forListView:self._atriaLastIconListView];
 		} else if(inDock) {
-			customScale = [manager floatValueForKey:@"dock_iconScale" forListView:self._atriaLastIconListView];
+			customScale = [manager scaleValueForKey:@"dock_iconScale" forListView:self._atriaLastIconListView];
 		}
 	}
 

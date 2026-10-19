@@ -12,6 +12,11 @@
 
 static SBFloatingDockController *fdController;
 
+static NSUInteger ARIMaxRecents() {
+    int recents = [[ARITweakManager sharedInstance] intValueForKey:@"maxFloatingDockRecents"];
+    return recents < 0 ? 0 : MIN((NSUInteger)recents, ARIMaxGridCount);
+}
+
 %hook SBDockView
 
 %new
@@ -103,7 +108,7 @@ static SBFloatingDockController *fdController;
                     appSuggestionManager:(id)arg7
                          analyticsClient:(id)arg8
                    applicationController:(id)arg9 {
-    NSUInteger maxRecents = [[ARITweakManager sharedInstance] intValueForKey:@"maxFloatingDockRecents"];
+    NSUInteger maxRecents = ARIMaxRecents();
     return %orig(maxRecents, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
 }
 
@@ -116,7 +121,7 @@ static SBFloatingDockController *fdController;
                     floatingDockDefaults:(id)arg6 
                     appSuggestionManager:(id)arg7 
                    applicationController:(id)arg8 {
-    NSUInteger maxRecents = [[ARITweakManager sharedInstance] intValueForKey:@"maxFloatingDockRecents"];
+    NSUInteger maxRecents = ARIMaxRecents();
     return %orig(maxRecents, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
 
