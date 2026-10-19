@@ -10,7 +10,6 @@
 #import "../UI/Splash/ARISplashViewController.h"
 #import "../UI/Label/ARILabelView.h"
 
-#include <dlfcn.h>
 #include <objc/runtime.h>
 
 %hook SBIconController 
@@ -146,10 +145,8 @@
             %init(PageLabelScrollFix);
         }
 
-        // Zenith compatibility
-        NSString *const zenithPath = ARIDylibPath(@"Zenith.dylib");
-        if([[NSFileManager defaultManager] fileExistsAtPath:zenithPath]) {
-            dlopen([zenithPath UTF8String], RTLD_NOW);
+        // Zenith compatibility. The fix hooks SpringBoard's own class, so Zenith need not be loaded yet
+        if([[NSFileManager defaultManager] fileExistsAtPath:ARIDylibPath(@"Zenith.dylib")]) {
             %init(ZenithFix);
         }
 	}
