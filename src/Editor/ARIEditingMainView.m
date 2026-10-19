@@ -311,7 +311,8 @@
     if([ARIEditManager sharedInstance].singleListMode) {
         // Single list mode
         ARITweakManager *manager = [ARITweakManager sharedInstance];
-        self.perPageIndicator.text = [NSString stringWithFormat:@"Page %lu Only", [manager indexOfListView:[[ARIEditManager sharedInstance] currentIconListViewIfSinglePage]] + 1];
+        NSUInteger index = [manager indexOfListView:[[ARIEditManager sharedInstance] currentIconListViewIfSinglePage]];
+        self.perPageIndicator.text = index == NSNotFound ? @"This Page Only" : [NSString stringWithFormat:@"Page %lu Only", (unsigned long)index + 1];
 
         _perPage.image = [UIImage systemImageNamed:@"doc.fill"];
     } else {
