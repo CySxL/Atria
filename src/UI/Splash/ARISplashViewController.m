@@ -152,8 +152,8 @@ static CGFloat ARIScreenLongSide(void) {
         [_infoStack.topAnchor constraintEqualToAnchor:_description.bottomAnchor
                                              constant:5],
         [_infoStack.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [_infoStack.bottomAnchor constraintEqualToAnchor:_ren.topAnchor
-                                                constant:-10],
+        [_infoStack.bottomAnchor constraintLessThanOrEqualToAnchor:_ren.topAnchor
+                                                         constant:-10],
     ]];
 }
 
@@ -163,7 +163,11 @@ static CGFloat ARIScreenLongSide(void) {
 
     entryView.translatesAutoresizingMaskIntoConstraints = NO;
     [_infoStack addArrangedSubview:entryView];
-    [entryView.heightAnchor constraintEqualToConstant:75].active = YES;
+    // Rows shrink together where six of them do not fit, as on an SE or a mini
+    [entryView.heightAnchor constraintLessThanOrEqualToConstant:75].active = YES;
+    NSLayoutConstraint *preferredHeight = [entryView.heightAnchor constraintEqualToConstant:75];
+    preferredHeight.priority = UILayoutPriorityDefaultHigh;
+    preferredHeight.active = YES;
     [entryView.widthAnchor constraintEqualToAnchor:_infoStack.widthAnchor].active = YES;
 
     UIImageView *imageView = [[UIImageView alloc] initWithImage:[image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate]];
