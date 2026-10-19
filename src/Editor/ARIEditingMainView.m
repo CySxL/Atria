@@ -262,7 +262,8 @@
     if(recognizer.state == UIGestureRecognizerStateBegan) {
         _panTouchdownOffset = [recognizer locationInView:self.superview].y - self.frame.origin.y;
     } else if(recognizer.state == UIGestureRecognizerStateChanged) {
-        [self _animateToPosition:[recognizer locationInView:self.superview].y - _panTouchdownOffset];
+        // The finger is the animation, so follow it without starting one per touch sample
+        _topAnchor.constant = CLAMP([recognizer locationInView:self.superview].y - _panTouchdownOffset, 50, _editorSpace - _heightAnchor.constant);
     }
 }
 
