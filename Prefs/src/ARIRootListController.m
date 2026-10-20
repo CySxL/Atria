@@ -83,11 +83,19 @@ static const CGFloat kARIVersionToScheme = 19.0;
     // The name's baseline sits where it centres the whole block on the icon.
     CGFloat blockHeight = nameFont.ascender + kARINameToVersion + kARIVersionToScheme - schemeFont.descender;
 
+    // Icon and text centred as one block, never past the leading margin.
     UILayoutGuide *margins = self.contentView.layoutMarginsGuide;
+    UILayoutGuide *block = [[UILayoutGuide alloc] init];
+    [self.contentView addLayoutGuide:block];
+    NSLayoutConstraint *centred = [block.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor];
+    centred.priority = UILayoutPriorityDefaultHigh;
     [NSLayoutConstraint activateConstraints:@[
         [icon.widthAnchor constraintEqualToConstant:kARIIconSide],
         [icon.heightAnchor constraintEqualToConstant:kARIIconSide],
-        [icon.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
+        [block.leadingAnchor constraintEqualToAnchor:icon.leadingAnchor],
+        [block.trailingAnchor constraintEqualToAnchor:text.trailingAnchor],
+        [icon.leadingAnchor constraintGreaterThanOrEqualToAnchor:margins.leadingAnchor],
+        centred,
         [icon.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
         [text.leadingAnchor constraintEqualToAnchor:icon.trailingAnchor constant:kARIHeaderGap],
         [name.firstBaselineAnchor constraintEqualToAnchor:icon.centerYAnchor constant:nameFont.ascender - blockHeight / 2.0]
