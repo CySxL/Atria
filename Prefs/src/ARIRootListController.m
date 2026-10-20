@@ -20,6 +20,12 @@
 #endif
 
 static const CGFloat kARIIconSide = 80.0;
+static const CGFloat kARIHeaderGap = 16.0;
+static const CGFloat kARINameSize = 34.0;
+static const CGFloat kARIVersionSize = 15.0;
+static const CGFloat kARISchemeSize = 13.0;
+static const CGFloat kARINameToVersion = 24.0;
+static const CGFloat kARIVersionToScheme = 19.0;
 
 @interface ARIHeaderCell : PSTableCell
 @end
@@ -37,23 +43,54 @@ static const CGFloat kARIIconSide = 80.0;
     icon.layer.cornerRadius = kARIIconSide * 0.225;
     [self.contentView addSubview:icon];
 
-    UILabel *version = [[UILabel alloc] init];
-    version.text = @"Version " PACKAGE_VERSION "\n" PACKAGE_SCHEME;
-    version.numberOfLines = 2;
-    version.font = [UIFont systemFontOfSize:14.0];
-    version.textColor = [UIColor systemGrayColor];
-    version.textAlignment = NSTextAlignmentCenter;
-    version.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.contentView addSubview:version];
+    UIFontDescriptor *bold = [[UIFontDescriptor preferredFontDescriptorWithTextStyle:UIFontTextStyleLargeTitle]
+        fontDescriptorWithSymbolicTraits:UIFontDescriptorTraitBold];
+    UIFont *nameFont = [UIFont fontWithDescriptor:bold size:kARINameSize];
+    UIFont *schemeFont = [UIFont systemFontOfSize:kARISchemeSize];
 
+    UILabel *name = [[UILabel alloc] init];
+    name.text = @"Atria";
+    name.font = nameFont;
+    // The star's cream is unreadable on a light page, so light mode takes the
+    // icon's own background instead.
+    name.textColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits) {
+        if(traits.userInterfaceStyle == UIUserInterfaceStyleDark)
+            return [UIColor colorWithRed:0xff / 255.0 green:0xff / 255.0 blue:0xc0 / 255.0 alpha:1.0];
+        return [UIColor colorWithRed:0x4c / 255.0 green:0x47 / 255.0 blue:0x46 / 255.0 alpha:1.0];
+    }];
+
+    UILabel *version = [[UILabel alloc] init];
+    version.text = @"Version " PACKAGE_VERSION;
+    version.font = [UIFont systemFontOfSize:kARIVersionSize];
+    version.textColor = [UIColor systemGrayColor];
+
+    UILabel *scheme = [[UILabel alloc] init];
+    scheme.text = @PACKAGE_SCHEME.capitalizedString;
+    scheme.font = schemeFont;
+    scheme.textColor = [UIColor systemGrayColor];
+
+    // Baseline to baseline, so the large name's leading does not push the two
+    // lines under it apart.
+    UIStackView *text = [[UIStackView alloc] initWithArrangedSubviews:@[ name, version, scheme ]];
+    text.axis = UILayoutConstraintAxisVertical;
+    text.alignment = UIStackViewAlignmentLeading;
+    text.baselineRelativeArrangement = YES;
+    [text setCustomSpacing:kARINameToVersion afterView:name];
+    [text setCustomSpacing:kARIVersionToScheme afterView:version];
+    text.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.contentView addSubview:text];
+
+    // The name's baseline sits where it centres the whole block on the icon.
+    CGFloat blockHeight = nameFont.ascender + kARINameToVersion + kARIVersionToScheme - schemeFont.descender;
+
+    UILayoutGuide *margins = self.contentView.layoutMarginsGuide;
     [NSLayoutConstraint activateConstraints:@[
         [icon.widthAnchor constraintEqualToConstant:kARIIconSide],
         [icon.heightAnchor constraintEqualToConstant:kARIIconSide],
-        [icon.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor],
-        [icon.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10.0],
-        [version.topAnchor constraintEqualToAnchor:icon.bottomAnchor constant:8.0],
-        [version.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor],
-        [version.widthAnchor constraintEqualToAnchor:self.contentView.widthAnchor]
+        [icon.leadingAnchor constraintEqualToAnchor:margins.leadingAnchor],
+        [icon.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [text.leadingAnchor constraintEqualToAnchor:icon.trailingAnchor constant:kARIHeaderGap],
+        [name.firstBaselineAnchor constraintEqualToAnchor:icon.centerYAnchor constant:nameFont.ascender - blockHeight / 2.0]
     ]];
 
     return self;
