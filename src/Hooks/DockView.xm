@@ -16,7 +16,55 @@
 
 @interface SBFloatingDockView (ARIBackgroundAlpha)
 @property (nonatomic, assign) BOOL _atriaWroteBackgroundOpacity;
+@property (nonatomic, assign) BOOL _atriaMovedPod;
+- (UIView *)dividerView;
+- (UIView *)recentIconListView;
 @end
+
+ARI_CACHED_CLASS(ARIDockIconViewClass, "SBIconView")
+ARI_CACHED_CLASS(ARIDockPodIconClass, "SBHLibraryPodIndicatorIcon")
+
+// Puts the library pod in the first recents slot and moves the recents along by one icon
+static BOOL ARIMovePodBeforeRecents(SBFloatingDockView *dock) {
+    if(![dock respondsToSelector:@selector(dividerView)] || ![dock respondsToSelector:@selector(recentIconListView)])
+        return NO;
+    UIView *divider = [dock dividerView];
+    UIView *recents = [dock recentIconListView];
+    UIView *platter = divider.superview;
+    if(!platter || divider.hidden || recents.superview != platter) return NO;
+
+    Class iconViewClass = ARIDockIconViewClass();
+    Class podClass = ARIDockPodIconClass();
+    if(!iconViewClass || !podClass) return NO;
+
+    UIView *pod = nil;
+    for(UIView *view in platter.subviews) {
+        if([view isKindOfClass:iconViewClass] && [((SBIconView *)view).icon isKindOfClass:podClass]) {
+            pod = view;
+            break;
+        }
+    }
+    if(!pod || pod.hidden) return NO;
+
+    CGFloat first = CGFLOAT_MAX;
+    CGFloat last = -CGFLOAT_MAX;
+    for(UIView *view in recents.subviews) {
+        if(![view isKindOfClass:iconViewClass]) continue;
+        first = MIN(first, view.frame.origin.x);
+        last = MAX(last, view.frame.origin.x);
+    }
+    if(first == CGFLOAT_MAX) return NO;
+
+    // The stock gap between the last recent and the pod
+    CGFloat pitch = CGRectGetMinX(pod.frame) - (CGRectGetMinX(recents.frame) + last);
+    if(pitch <= 0) return NO;
+
+    CGRect podFrame = pod.frame;
+    podFrame.origin.x = CGRectGetMinX(recents.frame) + first;
+    pod.frame = podFrame;
+    recents.frame = CGRectOffset(recents.frame, pitch, 0);
+    return YES;
+}
 
 static SBFloatingDockController *fdController;
 
@@ -150,14 +198,27 @@ static __weak SBFloatingDockView *presentedFloatingDockView;
 
 %hook SBFloatingDockView
 %property (nonatomic, assign) BOOL _atriaWroteBackgroundOpacity;
+%property (nonatomic, assign) BOOL _atriaMovedPod;
 
 %new
 + (SBFloatingDockView *)_atriaPresentedDockView {
     return presentedFloatingDockView;
 }
 
+- (void)layoutSubviews {
+    %orig;
+    // Frames are rewritten on every pass, so the move is never applied twice
+    if([[ARITweakManager sharedInstance] boolValueForKey:@"floatingDockPodBeforeRecents"])
+        self._atriaMovedPod = ARIMovePodBeforeRecents(self);
+    else if(self._atriaMovedPod)
+        self._atriaMovedPod = NO;
+}
+
 %new
 - (void)_atriaUpdateDockForSettingsChanged {
+    if([[ARITweakManager sharedInstance] boolValueForKey:@"floatingDockPodBeforeRecents"] != self._atriaMovedPod)
+        [self setNeedsLayout];
+
     float alpha = [[ARITweakManager sharedInstance] floatValueForKey:@"dock_bg"];
     if(alpha == 1 && !self._atriaWroteBackgroundOpacity) return;
     self._atriaWroteBackgroundOpacity = alpha != 1;

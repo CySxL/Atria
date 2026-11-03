@@ -159,6 +159,11 @@ static inline id ARIScalar(id value) {
                  defaultValue:@(YES)
                    lowerLimit:0
                    upperLimit:0];
+        [self _registerOption:@"floatingDockPodBeforeRecents"
+                  translation:nil
+                 defaultValue:@(NO)
+                   lowerLimit:0
+                   upperLimit:0];
         [self _registerOption:@"floatingDockRecents"
                   translation:nil
                  defaultValue:@(YES)
