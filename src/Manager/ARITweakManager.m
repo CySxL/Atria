@@ -1006,6 +1006,8 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 + (UIInterfaceOrientation)currentDeviceOrientation {
+    UIWindowScene *scene = [[self sharedInstance] rootFolderView].window.windowScene;
+    if(scene) return scene.interfaceOrientation;
     return [[[UIApplication sharedApplication] windows] firstObject].windowScene.interfaceOrientation;
 }
 
