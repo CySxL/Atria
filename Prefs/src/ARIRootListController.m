@@ -26,6 +26,20 @@ static const CGFloat kARIVersionSize = 15.0;
 static const CGFloat kARISchemeSize = 13.0;
 static const CGFloat kARINameToVersion = 24.0;
 static const CGFloat kARIVersionToScheme = 19.0;
+static const CGFloat kARIAvatarSide = 38.0;
+
+// The row indents its text by the width of the image it carries, so a symbol
+// takes the same square an avatar does or the two titles do not line up.
+static UIImage *ARISymbol(NSString *name, CGFloat side) {
+    UIImageSymbolConfiguration *configuration = [UIImageSymbolConfiguration configurationWithPointSize:20.0 weight:UIImageSymbolWeightMedium];
+    UIImage *symbol = [UIImage systemImageNamed:name withConfiguration:configuration] ?: [UIImage systemImageNamed:@"link" withConfiguration:configuration];
+    if(!symbol) return nil;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(side, side)];
+    UIImage *padded = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        [symbol drawInRect:CGRectMake((side - symbol.size.width) / 2.0, (side - symbol.size.height) / 2.0, symbol.size.width, symbol.size.height)];
+    }];
+    return [padded imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+}
 
 @interface ARIHeaderCell : PSTableCell
 @end
@@ -118,6 +132,46 @@ static const CGFloat kARIVersionToScheme = 19.0;
 
 @end
 
+@interface ARICreditCell : PSTableCell
+@end
+
+@implementation ARICreditCell {
+    UIImageView *_avatarView;
+}
+
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)identifier specifier:(PSSpecifier *)specifier {
+    self = [super initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:identifier specifier:specifier];
+    if(!self) return nil;
+
+    self.detailTextLabel.text = [specifier propertyForKey:@"subtitle"] ?: @"";
+    self.detailTextLabel.textColor = [UIColor systemGrayColor];
+    self.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+
+    UIImage *avatar = [specifier propertyForKey:@"ariAvatar"];
+    if(![avatar isKindOfClass:[UIImage class]]) {
+        self.imageView.tintColor = [UIColor secondaryLabelColor];
+        return self;
+    }
+
+    // An empty image of the right size, so the row lays out before the avatar is drawn into it
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(kARIAvatarSide, kARIAvatarSide), NO, [UIScreen mainScreen].scale);
+    [specifier setProperty:UIGraphicsGetImageFromCurrentImageContext() forKey:@"iconImage"];
+    UIGraphicsEndImageContext();
+
+    _avatarView = [[UIImageView alloc] initWithFrame:self.imageView.bounds];
+    _avatarView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _avatarView.contentMode = UIViewContentModeScaleAspectFill;
+    _avatarView.clipsToBounds = YES;
+    _avatarView.layer.cornerRadius = kARIAvatarSide * 0.5;
+    _avatarView.layer.minificationFilter = kCAFilterTrilinear;
+    _avatarView.image = avatar;
+    [self.imageView addSubview:_avatarView];
+
+    return self;
+}
+
+@end
+
 @implementation ARIRootListController
 
 - (NSArray *)specifiers {
@@ -134,6 +188,26 @@ static const CGFloat kARIVersionToScheme = 19.0;
         [specifiers addObject:group];
 
         [specifiers addObjectsFromArray:[self loadSpecifiersFromPlistName:@"Root" target:self]];
+
+        PSSpecifier *credits = [PSSpecifier emptyGroupSpecifier];
+        [credits setProperty:@"Credits" forKey:@"label"];
+        [credits setProperty:@"© CySxL 2026" forKey:@"footerText"];
+        [specifiers addObject:credits];
+
+        PSSpecifier *original = [PSSpecifier preferenceSpecifierNamed:@"ren7995" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
+        [original setProperty:[ARICreditCell class] forKey:@"cellClass"];
+        [original setProperty:@"Original Developer" forKey:@"subtitle"];
+        [original setProperty:ARISymbol(@"chevron.left.forwardslash.chevron.right", kARIAvatarSide) forKey:@"iconImage"];
+        original->action = @selector(openOriginal);
+        [specifiers addObject:original];
+
+        PSSpecifier *credit = [PSSpecifier preferenceSpecifierNamed:@"CySxL" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
+        [credit setProperty:[ARICreditCell class] forKey:@"cellClass"];
+        [credit setProperty:@"Roothide Port" forKey:@"subtitle"];
+        [credit setProperty:[UIImage imageNamed:@"avatar" inBundle:[NSBundle bundleForClass:[self class]] withConfiguration:nil] forKey:@"ariAvatar"];
+        credit->action = @selector(openGitHub);
+        [specifiers addObject:credit];
+
         _specifiers = specifiers;
     }
 
@@ -292,6 +366,14 @@ static const CGFloat kARIVersionToScheme = 19.0;
                 }];
     [alert addAction:defaultAction];
     [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)openOriginal {
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/ren7995/Atria"] options:@{} completionHandler:nil];
+}
+
+- (void)openGitHub {
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/CySxL"] options:@{} completionHandler:nil];
 }
 
 - (void)displayAlert:(NSString *)title message:(NSString *)message {
