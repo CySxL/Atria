@@ -96,7 +96,7 @@
 			<key>label</key>
 			<string>iPad/Floating Dock</string>
 			<key>footerText</key>
-			<string>Requires a respring to apply.</string>
+			<string>Force Floating Dock requires a respring to apply.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
