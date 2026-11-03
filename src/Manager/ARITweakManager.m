@@ -13,6 +13,11 @@
 
 static const NSTimeInterval kARISettledDuration = 0.6;
 
+ARI_CACHED_CLASS(ARIIconControllerClass, "SBIconController")
+ARI_CACHED_CLASS(ARIFloatingDockControllerClass, "SBFloatingDockController")
+ARI_CACHED_CLASS(ARIFloatingDockViewClass, "SBFloatingDockView")
+ARI_CACHED_CLASS(ARIIconViewClass, "SBIconView")
+
 @interface ARIWeakBox : NSObject
 @property (nonatomic, weak) id object;
 @end
@@ -511,14 +516,14 @@ static inline id ARIScalar(id value) {
                 [self _refreshIconViewsInListView:listView];
                 [listView layoutIconsNow];
             } else {
-                SBFloatingDockController *fdController = [objc_getClass("SBFloatingDockController") _atriaSharedInstance];
+                SBFloatingDockController *fdController = [ARIFloatingDockControllerClass() _atriaSharedInstance];
                 // Icon list and suggestions
                 [self _refreshIconViewsInListView:[fdController userIconListView]];
                 [self _refreshIconViewsInListView:[fdController suggestionsIconListView]];
                 [[fdController userIconListView] layoutIconsNow];
                 [[fdController suggestionsIconListView] layoutIconsNow];
                 // Held by the pod itself, so this does not go through the controller on iPhone
-                SBIconView *pod = [objc_getClass("SBIconView") _atriaLibraryPodIconView];
+                SBIconView *pod = [ARIIconViewClass() _atriaLibraryPodIconView];
                 [self _refreshIconView:pod];
                 [pod setNeedsLayout];
                 if([[self class] shouldTouchFloatingDockViews]) {
@@ -587,7 +592,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (void)_updateFloatingDockBackground {
-    [[objc_getClass("SBFloatingDockView") _atriaPresentedDockView] _atriaUpdateDockForSettingsChanged];
+    [[ARIFloatingDockViewClass() _atriaPresentedDockView] _atriaUpdateDockForSettingsChanged];
 }
 
 - (void)_refreshIconView:(SBIconView *)iconView {
@@ -602,13 +607,8 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (void)_refreshIconViewsInListView:(SBIconListView *)listView updatingDropShadow:(BOOL)dropShadow {
-    static Class iconViewClass;
-    static dispatch_once_t token;
-    dispatch_once(&token, ^{
-        iconViewClass = objc_getClass("SBIconView");
-    });
-
-    BOOL editing = dropShadow && [[[objc_getClass("SBIconController") sharedInstance] iconManager] isEditing];
+    Class iconViewClass = ARIIconViewClass();
+    BOOL editing = dropShadow && [[[ARIIconControllerClass() sharedInstance] iconManager] isEditing];
 
     for(UIView *subview in listView.subviews) {
         if(![subview isKindOfClass:iconViewClass]) continue;
@@ -625,7 +625,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
         [self _refreshIconViewsInListView:[self _dockListView] updatingDropShadow:YES];
         [[[self rootFolderView] dockView] _atriaUpdateDockForSettingsChanged];
     } else {
-        SBFloatingDockController *fdController = [objc_getClass("SBFloatingDockController") _atriaSharedInstance];
+        SBFloatingDockController *fdController = [ARIFloatingDockControllerClass() _atriaSharedInstance];
         [self _refreshIconViewsInListView:[fdController userIconListView] updatingDropShadow:YES];
     }
     [self _updateFloatingDockBackground];
@@ -675,7 +675,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 // This lags the device somewhat, so limit this as much as possible!
 - (void)relayoutEntireIconModel {
     // This will cause the entire icon model to re-layout
-    [[[[objc_getClass("SBIconController") sharedInstance] iconManager] iconModel] layout];
+    [[[[ARIIconControllerClass() sharedInstance] iconManager] iconModel] layout];
     // In order to fix the custom widget sizing, we need to call this
     [self updateLayoutForRoot:YES forDock:NO animated:NO];
 }
@@ -707,7 +707,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (SBRootFolderView *)rootFolderView {
-    return [[[objc_getClass("SBIconController") sharedInstance] _rootFolderController] rootFolderView];
+    return [[[ARIIconControllerClass() sharedInstance] _rootFolderController] rootFolderView];
 }
 
 - (NSArray<SBIconListView *> *)allRootListViews {
@@ -1010,7 +1010,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 + (BOOL)isUsingFloatingDock {
-    return [objc_getClass("SBFloatingDockController") isFloatingDockSupported];
+    return [ARIFloatingDockControllerClass() isFloatingDockSupported];
 }
 
 + (BOOL)shouldTouchFloatingDockViews {
@@ -1019,13 +1019,13 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 
 + (void)dismissFloatingDockIfPossible {
     if([self isUsingFloatingDock]) {
-        [[objc_getClass("SBFloatingDockController") _atriaSharedInstance] _dismissFloatingDockIfPresentedAnimated:YES completionHandler:nil];
+        [[ARIFloatingDockControllerClass() _atriaSharedInstance] _dismissFloatingDockIfPresentedAnimated:YES completionHandler:nil];
     }
 }
 
 + (void)presentFloatingDockIfPossible {
     if([self isUsingFloatingDock]) {
-        [[objc_getClass("SBFloatingDockController") _atriaSharedInstance] _presentFloatingDockIfDismissedAnimated:YES completionHandler:nil];
+        [[ARIFloatingDockControllerClass() _atriaSharedInstance] _presentFloatingDockIfDismissedAnimated:YES completionHandler:nil];
     }
 }
 
