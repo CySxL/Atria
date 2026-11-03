@@ -13,6 +13,10 @@
 
 static BOOL didLaunchSB = NO;
 
+ARI_CACHED_CLASS(ARIAppLibraryProviderClass, "ARIAppLibraryIconListLayoutProvider")
+ARI_CACHED_CLASS(ARIFlowExtendedLayoutClass, "SBIconListFlowExtendedLayout")
+ARI_CACHED_CLASS(ARIFlowLayoutClass, "SBIconListFlowLayout")
+
 @interface SBHDefaultIconListLayoutProvider : NSObject
 - (SBIconListFlowExtendedLayout *)layoutForIconLocation:(NSString *)location;
 @end
@@ -269,10 +273,10 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIListLayout
 		// Create a new flow layout with our modified (and copied) configuration
 		// layoutConfiguration is readonly on SBIconListFlowExtendedLayout
 		if([manager firmwareVersion] >= 14) {
-			state.cachedLayout = [[objc_getClass("SBIconListFlowExtendedLayout") alloc] initWithLayoutConfiguration:config];
+			state.cachedLayout = [[ARIFlowExtendedLayoutClass() alloc] initWithLayoutConfiguration:config];
 		} else {
 			// SBIconListFlowExtendedLayout does not exist on 13
-			state.cachedLayout = [[objc_getClass("SBIconListFlowLayout") alloc] initWithLayoutConfiguration:config];
+			state.cachedLayout = [[ARIFlowLayoutClass() alloc] initWithLayoutConfiguration:config];
 		}
 	} else if(IconListIsDock(self)) {
 		SBIconListGridLayoutConfiguration *config = orig.layoutConfiguration;
@@ -354,7 +358,7 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIListLayout
 	SBIconListFlowExtendedLayout *orig = %orig;
 	// We override the original class for root, unless we are the subclass
 	ARITweakManager *manager = [ARITweakManager sharedInstance];
-	if(IsLocationRoot(location) && ![self isMemberOfClass:objc_getClass("ARIAppLibraryIconListLayoutProvider")]) {
+	if(IsLocationRoot(location) && ![self isMemberOfClass:ARIAppLibraryProviderClass()]) {
 		NSUInteger cols = [manager gridValueForKey:@"hs_columns" forListView:nil];
 		NSUInteger rows = [manager gridValueForKey:@"hs_rows" forListView:nil];
 
