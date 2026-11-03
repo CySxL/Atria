@@ -72,6 +72,8 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>weatherFooter</string>
 			<key>footerText</key>
 			<string>Weather refresh sets how often the temperature and location are fetched. Off fetches them once when SpringBoard starts. Every fetch uses location, so leave it off unless you want the temperature kept current.</string>
 		</dict>
@@ -128,12 +130,16 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>lockFooter</string>
 			<key>footerText</key>
 			<string>Lock Label Text stops tapping a label from opening the keyboard, so the text cannot be changed by accident. Applies to the welcome message as well. Turn it off again to edit.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>textColorGroup</string>
 			<key>label</key>
 			<string>Text Color</string>
 			<key>footerText</key>
