@@ -834,7 +834,7 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (NSString *)stringValueForKey:(NSString *)key {
-    id value = [_preferences objectForKey:key];
+    id value = [self rawValueForKey:key];
     if([value isKindOfClass:[NSString class]]) return value;
 
     id fallback = [_optionsRegistry objectForKey:key].defaultValue;
