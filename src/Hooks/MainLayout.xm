@@ -362,9 +362,8 @@ static BOOL ARIRootLayoutInputsUnchanged(SBIconListView *listView, ARIListLayout
 		NSUInteger cols = [manager gridValueForKey:@"hs_columns" forListView:nil];
 		NSUInteger rows = [manager gridValueForKey:@"hs_rows" forListView:nil];
 
-		// By setting the cols and rows to 0x7F (127) after SpringBoard launches, it fixes a bug 
-		// where icons would disappear before they scroll visually offscreen on iOS 14.
-		if (didLaunchSB) cols = rows = 0x7F;
+		// Once launched, the widest grid stops icons vanishing before they scroll offscreen
+		if (didLaunchSB) cols = rows = ARIMaxGridCount;
 
 		[orig.layoutConfiguration setNumberOfPortraitColumns:cols];
 		[orig.layoutConfiguration setNumberOfPortraitRows:rows];
