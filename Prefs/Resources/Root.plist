@@ -163,8 +163,10 @@
 		<dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>
+			<key>id</key>
+			<string>thanksGroup</string>
 			<key>label</key>
-			<string>Credits</string>
+			<string>Special Thanks</string>
 			<key>footerText</key>
 			<string>Thank you to everyone who has helped me along the way of making this tweak! A special thanks to everyone who helped test the tweak throughout its various stages. Much love to you all 💜
 - ren</string>

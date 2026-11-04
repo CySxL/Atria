@@ -187,26 +187,36 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
         [group setProperty:@"In order to edit layout, 3D touch a homescreen icon, or triple tap behind them (on your wallpaper)" forKey:@"footerText"];
         [specifiers addObject:group];
 
-        [specifiers addObjectsFromArray:[self loadSpecifiersFromPlistName:@"Root" target:self]];
+        NSArray *rootSpecifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
+        NSMutableArray *developerRows = [NSMutableArray array];
 
         PSSpecifier *credits = [PSSpecifier emptyGroupSpecifier];
         [credits setProperty:@"Credits" forKey:@"label"];
         [credits setProperty:@"© CySxL 2026" forKey:@"footerText"];
-        [specifiers addObject:credits];
+        [developerRows addObject:credits];
 
         PSSpecifier *original = [PSSpecifier preferenceSpecifierNamed:@"ren7995" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
         [original setProperty:[ARICreditCell class] forKey:@"cellClass"];
         [original setProperty:@"Original Developer" forKey:@"subtitle"];
         [original setProperty:ARISymbol(@"chevron.left.forwardslash.chevron.right", kARIAvatarSide) forKey:@"iconImage"];
         original->action = @selector(openOriginal);
-        [specifiers addObject:original];
+        [developerRows addObject:original];
 
         PSSpecifier *credit = [PSSpecifier preferenceSpecifierNamed:@"CySxL" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
         [credit setProperty:[ARICreditCell class] forKey:@"cellClass"];
         [credit setProperty:@"Roothide Port" forKey:@"subtitle"];
         [credit setProperty:[UIImage imageNamed:@"avatar" inBundle:[NSBundle bundleForClass:[self class]] withConfiguration:nil] forKey:@"ariAvatar"];
         credit->action = @selector(openGitHub);
-        [specifiers addObject:credit];
+        [developerRows addObject:credit];
+
+        // The developers come before the upstream thanks group
+        NSUInteger thanks = [rootSpecifiers indexOfObjectPassingTest:^BOOL(PSSpecifier *specifier, NSUInteger index, BOOL *stop) {
+            return [specifier.identifier isEqualToString:@"thanksGroup"];
+        }];
+        if(thanks == NSNotFound) thanks = rootSpecifiers.count;
+        [specifiers addObjectsFromArray:[rootSpecifiers subarrayWithRange:NSMakeRange(0, thanks)]];
+        [specifiers addObjectsFromArray:developerRows];
+        [specifiers addObjectsFromArray:[rootSpecifiers subarrayWithRange:NSMakeRange(thanks, rootSpecifiers.count - thanks)]];
 
         _specifiers = specifiers;
     }
