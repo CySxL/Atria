@@ -73,20 +73,14 @@
 		<dict>
 			<key>cell</key>
 			<string>PSLinkCell</string>
-			<key>cellClass</key>
-			<string>HBColorPickerTableCell</string>
 			<key>label</key>
 			<string>Blur Tint</string>
-			<key>showAlphaSlider</key>
-			<false/>
 			<key>default</key>
 			<string>#FFFFFF</string>
-			<key>defaults</key>
-			<string>me.lau.AtriaPrefs</string>
-			<key>key</key>
+			<key>colorKey</key>
 			<string>blurTintColor</string>
-			<key>PostNotification</key>
-			<string>me.lau.Atria/ReloadPrefs</string>
+			<key>id</key>
+			<string>blurTintColor</string>
 		</dict>
 	</array>
 	<key>title</key>

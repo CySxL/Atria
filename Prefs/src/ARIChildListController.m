@@ -35,10 +35,57 @@ static NSString *ARIGateName(PSSpecifier *specifier) {
     return [key isKindOfClass:[NSString class]] ? key : specifier.identifier;
 }
 
+// Colour rows carry colorKey instead of key, so Preferences never reads or writes
+// them itself. Stored as "#RRGGBB".
+static NSString *ARIColorKey(PSSpecifier *specifier) {
+    NSString *key = [specifier propertyForKey:@"colorKey"];
+    return [key isKindOfClass:[NSString class]] ? key : nil;
+}
+
+static NSString *ARIStoredHex(PSSpecifier *specifier) {
+    id value = [[[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain] objectForKey:ARIColorKey(specifier)];
+    if(!value) value = [specifier propertyForKey:@"default"];
+    if([value isKindOfClass:[NSString class]] && [value length] == 7 && [value hasPrefix:@"#"]) {
+        NSScanner *scanner = [NSScanner scannerWithString:[value substringFromIndex:1]];
+        unsigned int rgb = 0;
+        if([scanner scanHexInt:&rgb] && scanner.isAtEnd) return [value uppercaseString];
+    }
+    return @"#FFFFFF";
+}
+
+static UIColor *ARIColorFromHex(NSString *hex) {
+    unsigned int rgb = 0;
+    [[NSScanner scannerWithString:[hex substringFromIndex:1]] scanHexInt:&rgb];
+    return [UIColor colorWithRed:((rgb >> 16) & 0xff) / 255.0 green:((rgb >> 8) & 0xff) / 255.0 blue:(rgb & 0xff) / 255.0 alpha:1.0];
+}
+
+static NSString *ARIHexFromColor(UIColor *color) {
+    CGFloat r = 0, g = 0, b = 0, a = 0;
+    [color getRed:&r green:&g blue:&b alpha:&a];
+    int (^channel)(CGFloat) = ^int(CGFloat c) { return (int)lround(fmin(fmax(c, 0.0), 1.0) * 255.0); };
+    return [NSString stringWithFormat:@"#%02X%02X%02X", channel(r), channel(g), channel(b)];
+}
+
+static UIImage *ARISwatch(UIColor *color) {
+    CGFloat side = 29.0;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(side, side)];
+    return [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        UIBezierPath *shape = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(0.5, 0.5, side - 1.0, side - 1.0) cornerRadius:side * 0.225];
+        [color setFill];
+        [shape fill];
+        [[UIColor colorWithWhite:0.5 alpha:0.35] setStroke];
+        [shape stroke];
+    }];
+}
+
+@interface ARIChildListController () <UIColorPickerViewControllerDelegate>
+@end
+
 @implementation ARIChildListController {
     NSString *_childName;
     NSArray<PSSpecifier *> *_allSpecifiers;
     NSArray<NSDictionary *> *_gates;
+    PSSpecifier *_picking;
 }
 
 - (BOOL)_isSwitchOn:(NSString *)key changed:(PSSpecifier *)changed value:(id)value {
@@ -75,6 +122,9 @@ static NSString *ARIGateName(PSSpecifier *specifier) {
 - (NSArray *)specifiers {
     if(!_specifiers && _childName) {
         _allSpecifiers = [self loadSpecifiersFromPlistName:_childName target:self];
+        // On every row, not only the visible ones, since a gated row comes back from here
+        for(PSSpecifier *specifier in _allSpecifiers)
+            if(ARIColorKey(specifier)) [specifier setProperty:ARISwatch(ARIColorFromHex(ARIStoredHex(specifier))) forKey:@"iconImage"];
         _gates = ARIGatesForPlist(_childName);
         _specifiers = _gates ? [[self _visibleSpecifiersWithChanged:nil value:nil] mutableCopy] : [_allSpecifiers mutableCopy];
     }
@@ -103,6 +153,51 @@ static NSString *ARIGateName(PSSpecifier *specifier) {
         }
         previous = row;
     }
+}
+
+- (NSIndexPath *)tableView:(UITableView *)tableView willSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    if(ARIColorKey([self specifierAtIndexPath:indexPath])) return indexPath;
+    if([PSListController instancesRespondToSelector:_cmd]) return [super tableView:tableView willSelectRowAtIndexPath:indexPath];
+    return indexPath;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    PSSpecifier *specifier = [self specifierAtIndexPath:indexPath];
+    if(!ARIColorKey(specifier)) {
+        [super tableView:tableView didSelectRowAtIndexPath:indexPath];
+        return;
+    }
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if(@available(iOS 14.0, *)) {
+        _picking = specifier;
+        UIColorPickerViewController *picker = [[UIColorPickerViewController alloc] init];
+        picker.title = specifier.name;
+        picker.supportsAlpha = NO;
+        picker.selectedColor = ARIColorFromHex(ARIStoredHex(specifier));
+        picker.delegate = self;
+        [self presentViewController:picker animated:YES completion:nil];
+    }
+}
+
+- (void)_savePickedColor:(UIColor *)color {
+    NSString *key = ARIColorKey(_picking);
+    if(!key || !color) return;
+    NSString *hex = ARIHexFromColor(color);
+    if([hex isEqualToString:ARIStoredHex(_picking)]) return;
+
+    [[[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain] setObject:hex forKey:key];
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("me.lau.Atria/ReloadPrefs"), NULL, NULL, YES);
+    [_picking setProperty:ARISwatch(ARIColorFromHex(hex)) forKey:@"iconImage"];
+    [self reloadSpecifier:_picking animated:NO];
+}
+
+- (void)colorPickerViewController:(UIColorPickerViewController *)picker didSelectColor:(UIColor *)color continuously:(BOOL)continuously API_AVAILABLE(ios(14.0)) {
+    if(!continuously) [self _savePickedColor:color];
+}
+
+- (void)colorPickerViewControllerDidFinish:(UIColorPickerViewController *)picker API_AVAILABLE(ios(14.0)) {
+    [self _savePickedColor:picker.selectedColor];
+    _picking = nil;
 }
 
 - (void)setSpecifier:(PSSpecifier *)specifier {
