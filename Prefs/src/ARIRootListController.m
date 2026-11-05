@@ -135,8 +135,12 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
 @interface ARICreditCell : PSTableCell
 @end
 
+// A row carrying ariBranch hangs off the row above it: a line from that row's avatar
+// bends into it, and the row above, carrying ariBranchBelow, drops its separator and
+// draws the top of the line.
 @implementation ARICreditCell {
     UIImageView *_avatarView;
+    CAShapeLayer *_branch;
 }
 
 - (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)identifier specifier:(PSSpecifier *)specifier {
@@ -146,6 +150,32 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
     self.detailTextLabel.text = [specifier propertyForKey:@"subtitle"] ?: @"";
     self.detailTextLabel.textColor = [UIColor systemGrayColor];
     self.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+
+    BOOL branch = [[specifier propertyForKey:@"ariBranch"] isEqual:@YES];
+    if(branch || [[specifier propertyForKey:@"ariBranchBelow"] isEqual:@YES]) {
+        _branch = [CAShapeLayer layer];
+        _branch.fillColor = nil;
+        _branch.lineWidth = 1.5;
+        _branch.lineCap = kCALineCapRound;
+        [self.contentView.layer addSublayer:_branch];
+    }
+    if(branch) {
+        // An empty slot as wide as the avatar, so the text lines up with the name above
+        UIGraphicsBeginImageContextWithOptions(CGSizeMake(kARIAvatarSide, 16.0), NO, [UIScreen mainScreen].scale);
+        [specifier setProperty:UIGraphicsGetImageFromCurrentImageContext() forKey:@"iconImage"];
+        UIGraphicsEndImageContext();
+        UIImageSymbolConfiguration *small = [UIImageSymbolConfiguration configurationWithPointSize:11.0 weight:UIImageSymbolWeightSemibold];
+        NSTextAttachment *code = [[NSTextAttachment alloc] init];
+        code.image = [[UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right" withConfiguration:small] imageWithTintColor:[UIColor linkColor] renderingMode:UIImageRenderingModeAlwaysOriginal];
+        NSMutableAttributedString *title = [[NSMutableAttributedString alloc] init];
+        if(code.image) [title appendAttributedString:[NSAttributedString attributedStringWithAttachment:code]];
+        [title appendAttributedString:[[NSAttributedString alloc] initWithString:[@"  " stringByAppendingString:specifier.name ?: @""]
+                                                                      attributes:@{NSFontAttributeName : [UIFont systemFontOfSize:13.0], NSForegroundColorAttributeName : [UIColor linkColor]}]];
+        self.textLabel.attributedText = title;
+        // nil rather than empty, so the subtitle style centres the one line
+        self.detailTextLabel.text = nil;
+        return self;
+    }
 
     UIImage *avatar = [specifier propertyForKey:@"ariAvatar"];
     if(![avatar isKindOfClass:[UIImage class]]) {
@@ -168,6 +198,36 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
     [self.imageView addSubview:_avatarView];
 
     return self;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    if(!_branch) return;
+    BOOL branch = [[self.specifier propertyForKey:@"ariBranch"] isEqual:@YES];
+    if(!branch) {
+        for(UIView *view in self.subviews)
+            if([NSStringFromClass([view class]) hasSuffix:@"SeparatorView"]) view.hidden = YES;
+    }
+    _branch.strokeColor = [[UIColor systemGray3Color] resolvedColorWithTraitCollection:self.traitCollection].CGColor;
+    CGRect slot = [self.contentView convertRect:self.imageView.bounds fromView:self.imageView];
+    CGFloat x = round(CGRectGetMidX(slot));
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    if(branch) {
+        CGFloat y = round(CGRectGetMidY(slot)), r = 6.0;
+        [path moveToPoint:CGPointMake(x, 0)];
+        [path addLineToPoint:CGPointMake(x, y - r)];
+        [path addQuadCurveToPoint:CGPointMake(x + r, y) controlPoint:CGPointMake(x, y)];
+        [path addLineToPoint:CGPointMake(CGRectGetMaxX(slot), y)];
+    } else {
+        [path moveToPoint:CGPointMake(x, CGRectGetMaxY(slot) + 3.0)];
+        [path addLineToPoint:CGPointMake(x, CGRectGetMaxY(self.contentView.bounds))];
+    }
+    _branch.path = path.CGPath;
+}
+
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous];
+    [self setNeedsLayout];
 }
 
 @end
@@ -198,13 +258,23 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
         PSSpecifier *original = [PSSpecifier preferenceSpecifierNamed:@"ren7995" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
         [original setProperty:[ARICreditCell class] forKey:@"cellClass"];
         [original setProperty:@"Original Developer" forKey:@"subtitle"];
-        [original setProperty:ARISymbol(@"chevron.left.forwardslash.chevron.right", kARIAvatarSide) forKey:@"iconImage"];
+        UIImage *ren = [UIImage imageWithContentsOfFile:ARIPrefsBundlePath(@"/ProfilePictures/ren.jpg")];
+        if(ren) [original setProperty:ren forKey:@"ariAvatar"];
+        else [original setProperty:ARISymbol(@"chevron.left.forwardslash.chevron.right", kARIAvatarSide) forKey:@"iconImage"];
+        [original setProperty:@YES forKey:@"ariBranchBelow"];
         original->action = @selector(openOriginal);
         [developerRows addObject:original];
 
+        PSSpecifier *source = [PSSpecifier preferenceSpecifierNamed:@"Source Code" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
+        [source setProperty:[ARICreditCell class] forKey:@"cellClass"];
+        [source setProperty:@YES forKey:@"ariBranch"];
+        [source setProperty:@34 forKey:@"height"];
+        source->action = @selector(openSource);
+        [developerRows addObject:source];
+
         PSSpecifier *credit = [PSSpecifier preferenceSpecifierNamed:@"CySxL" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
         [credit setProperty:[ARICreditCell class] forKey:@"cellClass"];
-        [credit setProperty:@"Roothide Port" forKey:@"subtitle"];
+        [credit setProperty:@"Maintainer · Roothide Port" forKey:@"subtitle"];
         [credit setProperty:[UIImage imageNamed:@"avatar" inBundle:[NSBundle bundleForClass:[self class]] withConfiguration:nil] forKey:@"ariAvatar"];
         credit->action = @selector(openGitHub);
         [developerRows addObject:credit];
@@ -379,6 +449,10 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
 }
 
 - (void)openOriginal {
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/ren7995"] options:@{} completionHandler:nil];
+}
+
+- (void)openSource {
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/ren7995/Atria"] options:@{} completionHandler:nil];
 }
 

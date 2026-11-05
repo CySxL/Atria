@@ -5,16 +5,6 @@
 	<key>items</key>
 	<array>
 		<dict>
-			<key>cellClass</key>
-			<string>ARITwitterCell</string>
-			<key>displayName</key>
-			<string>ren</string>
-			<key>description</key>
-			<string>Developer</string>
-			<key>height</key>
-			<integer>70</integer>
-		</dict>
-		<dict>
 			<key>cell</key>
 			<string>PSButtonCell</string>
 			<key>action</key>
