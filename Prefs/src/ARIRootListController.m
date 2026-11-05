@@ -250,8 +250,8 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
         NSArray *rootSpecifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
         NSMutableArray *developerRows = [NSMutableArray array];
 
-        PSSpecifier *credits = [PSSpecifier emptyGroupSpecifier];
-        [credits setProperty:@"Credits" forKey:@"label"];
+        // A group's header is its name; a label property is only mapped to one by the plist loader
+        PSSpecifier *credits = [PSSpecifier preferenceSpecifierNamed:@"Credits" target:self set:NULL get:NULL detail:nil cell:PSGroupCell edit:nil];
         [credits setProperty:@"© CySxL 2026" forKey:@"footerText"];
         [developerRows addObject:credits];
 
