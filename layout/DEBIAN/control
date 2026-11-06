@@ -1,8 +1,11 @@
+Package: me.lau.atria
+Name: Atria
+Version: 1.8.1
 Architecture: iphoneos-arm
-Author: ren7995
 Depends: firmware (>= 15.0), mobilesubstrate, preferenceloader
 Conflicts: com.irepo.boxy4, me.kritanta.homepluspro
-Description: Edits your homescreen layout on iOS 16-17, page by page.
+Description: A fork of ren7995's Atria.
+ Edits your homescreen layout on iOS 16-17, page by page.
  * set rows, columns, icon size & spacing.
  * move icon labels & page dots.
  * set the dock's rows, columns & background alpha.
@@ -12,8 +15,6 @@ Description: Edits your homescreen layout on iOS 16-17, page by page.
  * hide page dots, badges, labels & the dock.
  * export & import your settings.
  * support roothide.
+Author: ren7995, CySxL
 Maintainer: CySxL
-Name: Atria
-Package: me.lau.atria
 Section: Tweaks
-Version: 1.8.1
