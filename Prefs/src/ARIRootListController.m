@@ -166,7 +166,9 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
         UIGraphicsEndImageContext();
         UIImageSymbolConfiguration *small = [UIImageSymbolConfiguration configurationWithPointSize:11.0 weight:UIImageSymbolWeightSemibold];
         NSTextAttachment *code = [[NSTextAttachment alloc] init];
-        code.image = [[UIImage systemImageNamed:@"chevron.left.forwardslash.chevron.right" withConfiguration:small] imageWithTintColor:[UIColor linkColor] renderingMode:UIImageRenderingModeAlwaysOriginal];
+        NSString *symbol = [specifier propertyForKey:@"ariBranchSymbol"];
+        if (![symbol isKindOfClass:[NSString class]]) symbol = @"chevron.left.forwardslash.chevron.right";
+        code.image = [[UIImage systemImageNamed:symbol withConfiguration:small] imageWithTintColor:[UIColor linkColor] renderingMode:UIImageRenderingModeAlwaysOriginal];
         NSMutableAttributedString *title = [[NSMutableAttributedString alloc] init];
         if(code.image) [title appendAttributedString:[NSAttributedString attributedStringWithAttachment:code]];
         [title appendAttributedString:[[NSAttributedString alloc] initWithString:[@"  " stringByAppendingString:specifier.name ?: @""]
@@ -278,6 +280,15 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
         [credit setProperty:[UIImage imageNamed:@"avatar" inBundle:[NSBundle bundleForClass:[self class]] withConfiguration:nil] forKey:@"ariAvatar"];
         credit->action = @selector(openGitHub);
         [developerRows addObject:credit];
+        [credit setProperty:@YES forKey:@"ariBranchBelow"];
+
+        PSSpecifier *kofi = [PSSpecifier preferenceSpecifierNamed:@"Tip on Ko-fi" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
+        [kofi setProperty:[ARICreditCell class] forKey:@"cellClass"];
+        [kofi setProperty:@YES forKey:@"ariBranch"];
+        [kofi setProperty:@"cup.and.saucer" forKey:@"ariBranchSymbol"];
+        [kofi setProperty:@34 forKey:@"height"];
+        kofi->action = @selector(openKofi);
+        [developerRows addObject:kofi];
 
         // The developers come before the upstream thanks group
         NSUInteger thanks = [rootSpecifiers indexOfObjectPassingTest:^BOOL(PSSpecifier *specifier, NSUInteger index, BOOL *stop) {
@@ -454,6 +465,10 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
 
 - (void)openSource {
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/ren7995/Atria"] options:@{} completionHandler:nil];
+}
+
+- (void)openKofi {
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://ko-fi.com/cysxl"] options:@{} completionHandler:nil];
 }
 
 - (void)openGitHub {
