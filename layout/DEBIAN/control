@@ -1,9 +1,11 @@
-Package: me.lau.atria
+Package: com.cysxl.atria
 Name: Atria
 Version: 1.8.1
 Architecture: iphoneos-arm
 Depends: firmware (>= 15.0), mobilesubstrate, preferenceloader
-Conflicts: com.irepo.boxy4, me.kritanta.homepluspro
+Conflicts: me.lau.atria, com.irepo.boxy4, me.kritanta.homepluspro
+Replaces: me.lau.atria
+Provides: me.lau.atria
 Description: A fork of ren7995's Atria.
  Edits your homescreen layout on iOS 16-17, page by page.
  * set rows, columns, icon size & spacing.
