@@ -26,16 +26,26 @@
     return manager;
 }
 
+// SBIconController stopped being a view controller in iOS 17; the root folder controller still is
+static UIViewController *ARIHomeScreenController(void) {
+    id iconController = [objc_getClass("SBIconController") sharedInstance];
+    if([iconController isKindOfClass:[UIViewController class]]) return iconController;
+
+    id iconManager = [iconController respondsToSelector:@selector(iconManager)] ? [iconController iconManager] : nil;
+    id root = [iconManager respondsToSelector:@selector(rootViewController)] ? [iconManager rootViewController] : nil;
+    return [root isKindOfClass:[UIViewController class]] ? root : nil;
+}
+
 // Edit helper
 
 - (void)toggleEditView:(BOOL)toggle withTargetLocation:(NSString *)targetLoc {
     if(toggle) {
         // Start edit
         if(_isEditing) return;
+        UIViewController *iconController = ARIHomeScreenController();
+        if(!iconController.view) return;
         _isEditing = YES;
         _editingLocation = targetLoc;
-
-        UIViewController *iconController = (UIViewController *)[objc_getClass("SBIconController") sharedInstance];
 
         // Check if this list view has custom config
         _current = [[ARITweakManager sharedInstance] currentListView];
@@ -114,7 +124,7 @@
                                             handler:^(UIAlertAction *action){
                                             }]];
 
-    [[objc_getClass("SBIconController") sharedInstance] presentViewController:alert animated:YES completion:nil];
+    [ARIHomeScreenController() presentViewController:alert animated:YES completion:nil];
 }
 
 - (UIAlertAction *)_createEditAlertAction:(NSString *)title editLocation:(NSString *)location {
