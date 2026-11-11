@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>App Library Categories</string>
+			<key>footerText</key>
+			<string>Long press an app in the App Library to move it to another category or rename a category.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>default</key>
+			<false/>
+			<key>defaults</key>
+			<string>me.lau.AtriaPrefs</string>
+			<key>key</key>
+			<string>libraryCategories</string>
+			<key>label</key>
+			<string>Custom Categories</string>
+			<key>PostNotification</key>
+			<string>me.lau.Atria/ReloadPrefs</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>id</key>
+			<string>editLibraryCategoryApps</string>
+			<key>action</key>
+			<string>editLibraryCategoryApps:</string>
+			<key>label</key>
+			<string>Edit Categories</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>id</key>
+			<string>orderLibraryCategories</string>
+			<key>action</key>
+			<string>orderLibraryCategories:</string>
+			<key>label</key>
+			<string>Category Order</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>id</key>
+			<string>resetLibraryCategories</string>
+			<key>action</key>
+			<string>resetLibraryCategories:</string>
+			<key>label</key>
+			<string>Reset Categories</string>
+		</dict>
+	</array>
+	<key>title</key>
+	<string>App Library Categories</string>
+</dict>
+</plist>

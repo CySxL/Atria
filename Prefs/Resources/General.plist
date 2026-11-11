@@ -192,38 +192,6 @@
 			<key>PostNotification</key>
 			<string>me.lau.Atria/ReloadPrefs</string>
 		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSGroupCell</string>
-			<key>label</key>
-			<string>App Library Categories</string>
-			<key>footerText</key>
-			<string>Long press an app in the App Library to move it to another category or rename a category.</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSSwitchCell</string>
-			<key>default</key>
-			<false/>
-			<key>defaults</key>
-			<string>me.lau.AtriaPrefs</string>
-			<key>key</key>
-			<string>libraryCategories</string>
-			<key>label</key>
-			<string>Custom Categories</string>
-			<key>PostNotification</key>
-			<string>me.lau.Atria/ReloadPrefs</string>
-		</dict>
-		<dict>
-			<key>cell</key>
-			<string>PSButtonCell</string>
-			<key>id</key>
-			<string>resetLibraryCategories</string>
-			<key>action</key>
-			<string>resetLibraryCategories:</string>
-			<key>label</key>
-			<string>Reset Categories</string>
-		</dict>
         <dict>
 			<key>cell</key>
 			<string>PSGroupCell</string>

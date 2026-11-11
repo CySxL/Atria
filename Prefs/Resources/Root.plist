@@ -124,6 +124,18 @@
 			<key>detail</key>
 			<string>ARIChildListController</string>
 			<key>label</key>
+			<string>App Library Categories</string>
+			<key>child</key>
+			<string>LibraryCategories</string>
+			<key>icon</key>
+			<string>category</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkCell</string>
+			<key>detail</key>
+			<string>ARIChildListController</string>
+			<key>label</key>
 			<string>More Customization</string>
 			<key>child</key>
 			<string>Customization</string>

@@ -4,6 +4,7 @@
 //
 
 #import "ARIChildListController.h"
+#import "ARICategoryEditorController.h"
 
 // Rows that only act while one of their switches is on, by plist. A row is shown
 // while every gate it belongs to has a switch on.
@@ -16,7 +17,9 @@ static NSArray<NSDictionary *> *ARIGatesForPlist(NSString *name) {
             @"General" : @[
                 @{ @"switches" : @[ @"floatingDockAppLibrary" ], @"rows" : @[ @"floatingDockPodBeforeRecents" ] },
                 @{ @"switches" : @[ @"floatingDockRecents" ], @"rows" : @[ @"maxFloatingDockRecents" ] },
-                @{ @"switches" : @[ @"libraryCategories" ], @"rows" : @[ @"resetLibraryCategories" ] },
+            ],
+            @"LibraryCategories" : @[
+                @{ @"switches" : @[ @"libraryCategories" ], @"rows" : @[ @"editLibraryCategoryApps", @"orderLibraryCategories", @"resetLibraryCategories" ] },
             ],
             @"Customization" : @[
                 @{ @"switches" : @[ @"showBackground" ], @"rows" : @[ @"blurTintGroup", @"blurTintEnabled", @"blurTintColor" ] },
@@ -201,16 +204,25 @@ static UIImage *ARISwatch(UIColor *color) {
     _picking = nil;
 }
 
+- (void)editLibraryCategoryApps:(PSSpecifier *)specifier {
+    [self.navigationController pushViewController:[[ARICategoryEditorController alloc] initWithMode:ARICategoryEditorModeApps] animated:YES];
+}
+
+- (void)orderLibraryCategories:(PSSpecifier *)specifier {
+    [self.navigationController pushViewController:[[ARICategoryEditorController alloc] initWithMode:ARICategoryEditorModeOrder] animated:YES];
+}
+
 - (void)resetLibraryCategories:(PSSpecifier *)specifier {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Reset Categories"
-                                                                   message:@"Every app returns to its automatic category and every category to its original name."
+                                                                   message:@"Every app and category returns to its original place and name, and added categories are removed."
                                                             preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Reset"
                                               style:UIAlertActionStyleDestructive
                                             handler:^(UIAlertAction *action) {
                                                 NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
-                                                [defaults removeObjectForKey:ARILibraryCategoryAppsKey];
-                                                [defaults removeObjectForKey:ARILibraryCategoryNamesKey];
+                                                for(NSString *key in @[ ARILibraryCategoryAppsKey, ARILibraryCategoryNamesKey, ARILibraryCategoryOrderKey,
+                                                                        ARILibraryCategoryAppOrderKey, ARILibraryCustomCategoriesKey, ARILibraryCategoryNextIDKey ])
+                                                    [defaults removeObjectForKey:key];
                                                 [defaults synchronize];
                                                 CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("me.lau.Atria/ReloadPrefs"), NULL, NULL, YES);
                                             }]];
