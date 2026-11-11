@@ -430,6 +430,20 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
             continue;
         }
 
+        if([key isEqualToString:ARILibraryCategoryAppsKey] || [key isEqualToString:ARILibraryCategoryNamesKey]) {
+            if(![value isKindOfClass:[NSDictionary class]]) continue;
+            BOOL isApps = [key isEqualToString:ARILibraryCategoryAppsKey];
+            NSMutableDictionary *entries = [NSMutableDictionary new];
+            for(id entryKey in (NSDictionary *)value) {
+                id entry = ((NSDictionary *)value)[entryKey];
+                if(![entryKey isKindOfClass:[NSString class]]) continue;
+                if(isApps ? [entry isKindOfClass:[NSNumber class]] : ([entry isKindOfClass:[NSString class]] && [entry length]))
+                    entries[entryKey] = entry;
+            }
+            if([entries count]) accepted[key] = entries;
+            continue;
+        }
+
         // The underscore prefix means it's an internal setting, not meant to be shared
         if([key hasPrefix:@"_"]) continue;
         if(![value isKindOfClass:[NSString class]] && ![value isKindOfClass:[NSNumber class]]) continue;
