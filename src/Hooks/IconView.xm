@@ -262,12 +262,13 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 %new
 - (void)_atriaSetupDropShadow:(BOOL)isEditing {
-	BOOL enabled = [[ARITweakManager sharedInstance] boolValueForKey:@"dropShadow"];
-	SBIcon *icon = [self icon];
-	BOOL widgetOrAppIcon = [icon application] || [icon isKindOfClass:ARIWidgetIconClass()] || [icon isKindOfClass:ARIBookmarkIconClass()];
+	BOOL enabled = !isEditing && [[ARITweakManager sharedInstance] boolValueForKey:@"dropShadow"];
+	SBIcon *icon = enabled ? [self icon] : nil;
+	// Control Center's icons on iOS 26 are SBIconViews whose icon has no application
+	BOOL widgetOrAppIcon = icon && (([icon respondsToSelector:@selector(application)] && [icon application]) || [icon isKindOfClass:ARIWidgetIconClass()] || [icon isKindOfClass:ARIBookmarkIconClass()]);
 	// Don't apply shadows in floating dock, because dynamic scaling of the app icons gets weird
 	// Not the macro, since the suggestions location has to be caught too
-	if(enabled && !isEditing && widgetOrAppIcon && ![self.location hasPrefix:@"SBIconLocationFloating"]) {
+	if(widgetOrAppIcon && ![self.location hasPrefix:@"SBIconLocationFloating"]) {
 		if(self.layer.shadowRadius > 0.0F) return;
 		self.layer.masksToBounds = NO;
 		self.layer.shadowOpacity = 0.4F;
