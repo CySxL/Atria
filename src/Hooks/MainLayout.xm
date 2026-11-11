@@ -399,6 +399,7 @@ static void applyPreferencesChanged() {
 	else
 		[manager refreshPreferenceDependentViews];
 	[manager applyPageDotVisibility];
+	ARICategoryPreferencesChanged();
 }
 
 static void preferencesChanged() {

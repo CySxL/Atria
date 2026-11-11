@@ -319,7 +319,9 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 }
 
 - (NSArray *)applicationShortcutItems {
-	if([[ARITweakManager sharedInstance] boolValueForKey:@"hide3DTouchActions"] || [self isFolderIcon]) return %orig;
+	if([self isFolderIcon]) return %orig;
+	if(IsLocationAnyAppLibrary(self.location)) return ARILibraryCategoryShortcutItems(self, %orig);
+	if([[ARITweakManager sharedInstance] boolValueForKey:@"hide3DTouchActions"]) return %orig;
 
 	// Add shortcut item to activate editor
 	// I found this really cool gist to allow me to do this, tyvm to the author <3
@@ -344,7 +346,9 @@ static CGFloat ARILabelOffsetForLabel(UIView *label) {
 
 + (void)activateShortcut:(SBSApplicationShortcutItem *)item withBundleIdentifier:(NSString *)bundleID forIconView:(SBIconView *)iconView {
 	NSString *prefix = @"me.lau.atria.edit.";
-	if([[item type] hasPrefix:prefix]) {
+	if(ARIIsLibraryCategoryShortcut([item type])) {
+		ARIHandleLibraryCategoryShortcut([item type], bundleID, iconView);
+	} else if([[item type] hasPrefix:prefix]) {
 		NSString *loc = [[item type] stringByReplacingOccurrencesOfString:prefix withString:@""];
 		[[ARIEditManager sharedInstance] toggleEditView:YES withTargetLocation:loc];
 	} else {

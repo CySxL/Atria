@@ -55,3 +55,12 @@
 #define IconIsInAppLibrary(x) IsLocationAppLibrary(x.location)
 #define IconIsInAppLibraryPod(x) IsLocationAppLibraryPod(x.location)
 #define IconIsInFolder(x) IsLocationFolder(x.location)
+
+// Any App Library location, including the pods, their expanded form and the search list
+#define IsLocationAnyAppLibrary(x) [x hasPrefix:@"SBIconLocationAppLibrary"]
+
+@class SBIconView;
+void ARICategoryPreferencesChanged(void);
+NSArray *ARILibraryCategoryShortcutItems(SBIconView *iconView, NSArray *items);
+BOOL ARIIsLibraryCategoryShortcut(NSString *type);
+void ARIHandleLibraryCategoryShortcut(NSString *type, NSString *bundleID, UIView *iconView);
