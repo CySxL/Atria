@@ -12,6 +12,10 @@ static NSString *const ARIPreferenceDomain = @"me.lau.AtriaPrefs";
 static NSString *const ARIPerPageListViewsKey = @"_perPageListViews";
 static NSString *const ARILibraryCategoryAppsKey = @"libraryCategoryApps";
 static NSString *const ARILibraryCategoryNamesKey = @"libraryCategoryNames";
+static NSString *const ARILibraryCategoryOrderKey = @"libraryCategoryOrder";
+static NSString *const ARILibraryCategoryAppOrderKey = @"libraryCategoryAppOrder";
+static NSString *const ARILibraryCustomCategoriesKey = @"libraryCustomCategories";
+static NSString *const ARILibraryCategoryNextIDKey = @"libraryCategoryNextID";
 
 @interface ARIListController : PSListController
 - (void)promptRespring:(id)sender;

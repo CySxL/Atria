@@ -444,6 +444,48 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
             continue;
         }
 
+        if([key isEqualToString:ARILibraryCategoryOrderKey]) {
+            if(![value isKindOfClass:[NSArray class]]) continue;
+            NSMutableArray *entries = [NSMutableArray new];
+            for(id entry in (NSArray *)value)
+                if([entry isKindOfClass:[NSString class]] && [entry length]) [entries addObject:entry];
+            if([entries count]) accepted[key] = entries;
+            continue;
+        }
+
+        if([key isEqualToString:ARILibraryCategoryAppOrderKey]) {
+            if(![value isKindOfClass:[NSDictionary class]]) continue;
+            NSMutableDictionary *entries = [NSMutableDictionary new];
+            for(id entryKey in (NSDictionary *)value) {
+                id order = ((NSDictionary *)value)[entryKey];
+                if(![entryKey isKindOfClass:[NSString class]] || ![order isKindOfClass:[NSArray class]]) continue;
+                NSMutableArray *apps = [NSMutableArray new];
+                for(id bundleID in (NSArray *)order)
+                    if([bundleID isKindOfClass:[NSString class]] && [bundleID length]) [apps addObject:bundleID];
+                if([apps count]) entries[entryKey] = apps;
+            }
+            if([entries count]) accepted[key] = entries;
+            continue;
+        }
+
+        if([key isEqualToString:ARILibraryCustomCategoriesKey]) {
+            if(![value isKindOfClass:[NSArray class]]) continue;
+            // Below 9001 is one of Apple's categories, and deleting it as a custom one would drop its overrides
+            NSMutableArray *entries = [NSMutableArray new];
+            NSMutableSet *seen = [NSMutableSet new];
+            for(id entry in (NSArray *)value) {
+                if(![entry isKindOfClass:[NSDictionary class]]) continue;
+                id categoryID = ((NSDictionary *)entry)[@"id"];
+                id name = ((NSDictionary *)entry)[@"name"];
+                if(![categoryID isKindOfClass:[NSNumber class]] || ![name isKindOfClass:[NSString class]] || ![name length]) continue;
+                if([categoryID unsignedIntegerValue] < 9001 || [seen containsObject:categoryID]) continue;
+                [seen addObject:categoryID];
+                [entries addObject:@{ @"id" : categoryID, @"name" : name }];
+            }
+            if([entries count]) accepted[key] = entries;
+            continue;
+        }
+
         // The underscore prefix means it's an internal setting, not meant to be shared
         if([key hasPrefix:@"_"]) continue;
         if(![value isKindOfClass:[NSString class]] && ![value isKindOfClass:[NSNumber class]]) continue;
