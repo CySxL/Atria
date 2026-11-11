@@ -10,6 +10,8 @@
 #define kPrefTintColor [UIColor colorWithRed:0.32 green:0.03 blue:0.49 alpha:1.00]
 static NSString *const ARIPreferenceDomain = @"me.lau.AtriaPrefs";
 static NSString *const ARIPerPageListViewsKey = @"_perPageListViews";
+static NSString *const ARILibraryCategoryAppsKey = @"libraryCategoryApps";
+static NSString *const ARILibraryCategoryNamesKey = @"libraryCategoryNames";
 
 @interface ARIListController : PSListController
 - (void)promptRespring:(id)sender;

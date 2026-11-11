@@ -16,6 +16,7 @@ static NSArray<NSDictionary *> *ARIGatesForPlist(NSString *name) {
             @"General" : @[
                 @{ @"switches" : @[ @"floatingDockAppLibrary" ], @"rows" : @[ @"floatingDockPodBeforeRecents" ] },
                 @{ @"switches" : @[ @"floatingDockRecents" ], @"rows" : @[ @"maxFloatingDockRecents" ] },
+                @{ @"switches" : @[ @"libraryCategories" ], @"rows" : @[ @"resetLibraryCategories" ] },
             ],
             @"Customization" : @[
                 @{ @"switches" : @[ @"showBackground" ], @"rows" : @[ @"blurTintGroup", @"blurTintEnabled", @"blurTintColor" ] },
@@ -198,6 +199,23 @@ static UIImage *ARISwatch(UIColor *color) {
 - (void)colorPickerViewControllerDidFinish:(UIColorPickerViewController *)picker API_AVAILABLE(ios(14.0)) {
     [self _savePickedColor:picker.selectedColor];
     _picking = nil;
+}
+
+- (void)resetLibraryCategories:(PSSpecifier *)specifier {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Reset Categories"
+                                                                   message:@"Every app returns to its automatic category and every category to its original name."
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Reset"
+                                              style:UIAlertActionStyleDestructive
+                                            handler:^(UIAlertAction *action) {
+                                                NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
+                                                [defaults removeObjectForKey:ARILibraryCategoryAppsKey];
+                                                [defaults removeObjectForKey:ARILibraryCategoryNamesKey];
+                                                [defaults synchronize];
+                                                CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("me.lau.Atria/ReloadPrefs"), NULL, NULL, YES);
+                                            }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)setSpecifier:(PSSpecifier *)specifier {
