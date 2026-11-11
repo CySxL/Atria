@@ -1,6 +1,6 @@
 Package: com.cysxl.atria
 Name: Atria
-Version: 1.8.6
+Version: 1.8.9
 Architecture: iphoneos-arm
 Depends: firmware (>= 15.0), mobilesubstrate, preferenceloader
 Conflicts: me.lau.atria, com.irepo.boxy4, me.kritanta.homepluspro
