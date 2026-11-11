@@ -4,6 +4,7 @@
 
 #import "Shared.h"
 #import "../Manager/ARITweakManager.h"
+#import "../ARIPaths.h"
 
 @interface SBHLibraryCategoryIdentifier : NSObject <NSCopying>
 - (instancetype)initWithPredictionCategoryID:(NSUInteger)categoryID categoryIndex:(NSUInteger)index localizedDisplayName:(NSString *)name localizedDisplayNameKey:(NSString *)key;
@@ -30,17 +31,36 @@
 static const NSUInteger ARISuggestedCategoryID = 3;
 static const NSUInteger ARIRecentCategoryID = 4;
 
+ARI_CACHED_CLASS(ARICategoryIdentifierClass, "SBHLibraryCategoryIdentifier")
+
+// Custom categories take IDs from here up, clear of Apple's 1xxx and 6xxx
+static const NSUInteger ARIFirstCustomCategoryID = 9001;
+
 static BOOL categoriesEnabled;
 static NSDictionary<NSString *, NSNumber *> *appOverrides;
 static NSDictionary<NSString *, NSString *> *nameOverrides;
+static NSArray<NSString *> *categoryOrder;
+static NSDictionary<NSString *, NSArray<NSString *> *> *appOrder;
+static NSArray<NSDictionary *> *customCategories;
 
 static __weak SBHLibraryCategoriesFolderDataSource *liveDataSource;
 static SBHLibraryCategoryMap *stockMap;
+static SBHLibraryCategoryMap *effectiveMap;
 static __weak SBHLibraryCategoryMap *producedMap;
 static __weak SBHLibraryCategoryMap *lastSeenMap;
+// nil until the first write in this SpringBoard, so a fresh process always writes once
+static NSDictionary *publishedCategories;
 
 static BOOL ARIIsSystemCategory(NSUInteger categoryID) {
 	return categoryID == ARISuggestedCategoryID || categoryID == ARIRecentCategoryID;
+}
+
+static NSArray<NSString *> *ARIStringArray(id raw) {
+	if(![raw isKindOfClass:[NSArray class]]) return nil;
+	NSMutableArray *result = [NSMutableArray new];
+	for(id value in (NSArray *)raw)
+		if([value isKindOfClass:[NSString class]] && [value length]) [result addObject:value];
+	return result;
 }
 
 static void ARILoadCategoryPrefs(void) {
@@ -65,12 +85,48 @@ static void ARILoadCategoryPrefs(void) {
 		}
 	}
 
+	NSMutableDictionary *orders = [NSMutableDictionary new];
+	raw = [manager rawValueForKey:ARILibraryCategoryAppOrderKey];
+	if([raw isKindOfClass:[NSDictionary class]]) {
+		for(id key in (NSDictionary *)raw) {
+			NSArray *order = ARIStringArray(((NSDictionary *)raw)[key]);
+			if([key isKindOfClass:[NSString class]] && [order count]) orders[key] = order;
+		}
+	}
+
+	NSMutableArray *customs = [NSMutableArray new];
+	NSMutableSet *customIDs = [NSMutableSet new];
+	raw = [manager rawValueForKey:ARILibraryCustomCategoriesKey];
+	if([raw isKindOfClass:[NSArray class]]) {
+		for(id entry in (NSArray *)raw) {
+			if(![entry isKindOfClass:[NSDictionary class]]) continue;
+			id categoryID = ((NSDictionary *)entry)[@"id"];
+			id name = ((NSDictionary *)entry)[@"name"];
+			if(![categoryID isKindOfClass:[NSNumber class]] || ![name isKindOfClass:[NSString class]] || ![name length]) continue;
+			if([categoryID unsignedIntegerValue] < ARIFirstCustomCategoryID || [customIDs containsObject:categoryID]) continue;
+			[customIDs addObject:categoryID];
+			[customs addObject:@{ @"id" : categoryID, @"name" : name }];
+		}
+	}
+
 	appOverrides = [apps copy];
 	nameOverrides = [names copy];
+	categoryOrder = ARIStringArray([manager rawValueForKey:ARILibraryCategoryOrderKey]);
+	appOrder = [orders copy];
+	customCategories = [customs copy];
 }
 
 static BOOL ARIHasCategoryOverrides(void) {
-	return categoriesEnabled && ([appOverrides count] || [nameOverrides count]);
+	return categoriesEnabled && ([appOverrides count] || [nameOverrides count] || [categoryOrder count] || [appOrder count] || [customCategories count]);
+}
+
+static NSArray *ARIOrderedList(NSArray *list, NSArray *order) {
+	NSSet *present = [NSSet setWithArray:list];
+	NSMutableOrderedSet *result = [NSMutableOrderedSet new];
+	for(NSString *bundleID in order)
+		if([present containsObject:bundleID]) [result addObject:bundleID];
+	[result addObjectsFromArray:list];
+	return [result array];
 }
 
 static SBHLibraryCategoryMap *ARIApplyCategoryOverrides(SBHLibraryCategoryMap *map) {
@@ -84,8 +140,28 @@ static SBHLibraryCategoryMap *ARIApplyCategoryOverrides(SBHLibraryCategoryMap *m
 	if(![names isKindOfClass:[NSMutableDictionary class]]) names = [NSMutableDictionary new];
 
 	NSMutableDictionary<NSNumber *, SBHLibraryCategoryIdentifier *> *byID = [NSMutableDictionary new];
-	for(SBHLibraryCategoryIdentifier *identifier in identifiers)
+	NSUInteger nextIndex = 0;
+	for(SBHLibraryCategoryIdentifier *identifier in identifiers) {
 		byID[@([identifier predictionCategoryID])] = identifier;
+		if(!ARIIsSystemCategory([identifier predictionCategoryID])) nextIndex = MAX(nextIndex, [identifier predictionCategoryIndex] + 1);
+	}
+
+	// Added before the moves below, each with an empty list, so a move into one has somewhere to land
+	NSMutableSet<NSNumber *> *customIDs = [NSMutableSet new];
+	for(NSDictionary *custom in customCategories) {
+		if(byID[custom[@"id"]]) continue;
+		SBHLibraryCategoryIdentifier *identifier = [[ARICategoryIdentifierClass() alloc]
+			initWithPredictionCategoryID:[custom[@"id"] unsignedIntegerValue]
+						   categoryIndex:nextIndex++
+					localizedDisplayName:custom[@"name"]
+				 localizedDisplayNameKey:nil];
+		if(!identifier) continue;
+		[identifiers addObject:identifier];
+		apps[identifier] = @[];
+		names[identifier] = custom[@"name"];
+		byID[custom[@"id"]] = identifier;
+		[customIDs addObject:custom[@"id"]];
+	}
 
 	[appOverrides enumerateKeysAndObjectsUsingBlock:^(NSString *bundleID, NSNumber *target, BOOL *stop) {
 		SBHLibraryCategoryIdentifier *targetKey = byID[target];
@@ -110,6 +186,15 @@ static SBHLibraryCategoryMap *ARIApplyCategoryOverrides(SBHLibraryCategoryMap *m
 			apps[targetKey] = [list arrayByAddingObject:bundleID];
 	}];
 
+	// Only reorders what the category holds, so an app no longer installed is skipped
+	[appOrder enumerateKeysAndObjectsUsingBlock:^(NSString *idString, NSArray *order, BOOL *stop) {
+		NSUInteger categoryID = (NSUInteger)[idString integerValue];
+		SBHLibraryCategoryIdentifier *key = byID[@(categoryID)];
+		NSArray *list = key ? apps[key] : nil;
+		if(ARIIsSystemCategory(categoryID) || ![list isKindOfClass:[NSArray class]]) return;
+		apps[key] = ARIOrderedList(list, order);
+	}];
+
 	// The pod label reads the identifier's own name, and the name is part of its equality,
 	// so a renamed category takes a new identifier under every key it was used as
 	[nameOverrides enumerateKeysAndObjectsUsingBlock:^(NSString *idString, NSString *name, BOOL *stop) {
@@ -117,7 +202,7 @@ static SBHLibraryCategoryMap *ARIApplyCategoryOverrides(SBHLibraryCategoryMap *m
 		SBHLibraryCategoryIdentifier *old = byID[@(categoryID)];
 		if(!old || ARIIsSystemCategory(categoryID)) return;
 
-		SBHLibraryCategoryIdentifier *renamed = [[objc_getClass("SBHLibraryCategoryIdentifier") alloc]
+		SBHLibraryCategoryIdentifier *renamed = [[ARICategoryIdentifierClass() alloc]
 			initWithPredictionCategoryID:categoryID
 						   categoryIndex:[old predictionCategoryIndex]
 					localizedDisplayName:name
@@ -133,11 +218,67 @@ static SBHLibraryCategoryMap *ARIApplyCategoryOverrides(SBHLibraryCategoryMap *m
 		names[renamed] = name;
 	}];
 
-	[result setCategoryIdentifiers:identifiers];
+	// Pods follow this array, not predictionCategoryIndex. Suggestions and Recently Added
+	// stay first, listed categories follow in the stored order, the rest keep theirs.
+	NSMutableArray *system = [NSMutableArray new];
+	NSMutableArray *ranked = [NSMutableArray new];
+	NSMutableArray *rest = [NSMutableArray new];
+	NSMutableDictionary<NSNumber *, NSNumber *> *rank = [NSMutableDictionary new];
+	for(NSString *idString in categoryOrder) {
+		NSNumber *categoryID = @((NSUInteger)[idString integerValue]);
+		if(!rank[categoryID]) rank[categoryID] = @([rank count]);
+	}
+	for(SBHLibraryCategoryIdentifier *identifier in identifiers) {
+		NSUInteger categoryID = [identifier predictionCategoryID];
+		// A custom category nothing was moved into gets no pod
+		if([customIDs containsObject:@(categoryID)] && ![apps[identifier] count]) {
+			[apps removeObjectForKey:identifier];
+			[names removeObjectForKey:identifier];
+			continue;
+		}
+		if(ARIIsSystemCategory(categoryID)) [system addObject:identifier];
+		else if(rank[@(categoryID)]) [ranked addObject:identifier];
+		else [rest addObject:identifier];
+	}
+	[ranked sortUsingComparator:^NSComparisonResult(SBHLibraryCategoryIdentifier *a, SBHLibraryCategoryIdentifier *b) {
+		return [rank[@([a predictionCategoryID])] compare:rank[@([b predictionCategoryID])]];
+	}];
+	[system addObjectsFromArray:ranked];
+	[system addObjectsFromArray:rest];
+
+	[result setCategoryIdentifiers:system];
 	[result setSortedApplicationIdentifiersByCategoryIdentifier:apps];
 	[result setLocalizedCategoryNameByCategoryIdentifier:names];
 	producedMap = result;
 	return result;
+}
+
+static NSArray<NSDictionary *> *ARIDescribeCategoryMap(SBHLibraryCategoryMap *map) {
+	NSMutableArray *result = [NSMutableArray new];
+	NSDictionary *apps = [map sortedApplicationIdentifiersByCategoryIdentifier];
+	for(SBHLibraryCategoryIdentifier *identifier in [map categoryIdentifiers]) {
+		if(ARIIsSystemCategory([identifier predictionCategoryID])) continue;
+		NSArray *list = ARIStringArray(apps[identifier]) ?: @[];
+		NSString *name = [identifier localizedDisplayName];
+		[result addObject:@{
+			@"id" : @([identifier predictionCategoryID]),
+			@"name" : [name isKindOfClass:[NSString class]] ? name : @"",
+			@"apps" : list,
+		}];
+	}
+	return result;
+}
+
+// The settings page reads the stock map to know where an app goes back to, and the
+// effective one to show what is on screen. Only while the switch is on.
+static void ARIPublishCategories(SBHLibraryCategoryMap *stock, SBHLibraryCategoryMap *effective) {
+	if(!categoriesEnabled || !stock || !effective) return;
+	NSDictionary *categories = @{
+		@"stock" : ARIDescribeCategoryMap(stock),
+		@"effective" : ARIDescribeCategoryMap(effective),
+	};
+	if([categories isEqual:publishedCategories]) return;
+	if([categories writeToURL:[NSURL fileURLWithPath:ARILibraryCategoriesPath] error:nil]) publishedCategories = categories;
 }
 
 static void ARIReapplyCategories(void) {
@@ -152,7 +293,10 @@ static void ARIReapplyCategories(void) {
 - (void)reloadDataWithCategoryMap:(SBHLibraryCategoryMap *)map {
 	liveDataSource = self;
 	if(map && map != producedMap) stockMap = map;
-	%orig(ARIApplyCategoryOverrides(map));
+	SBHLibraryCategoryMap *effective = ARIApplyCategoryOverrides(map);
+	effectiveMap = effective;
+	%orig(effective);
+	ARIPublishCategories(stockMap, effective);
 }
 
 // Runs about once a second while idle. A map arriving here that did not come through
@@ -164,9 +308,14 @@ static void ARIReapplyCategories(void) {
 	liveDataSource = self;
 	if(map == producedMap) return;
 	stockMap = map;
-	if(ARIHasCategoryOverrides()) dispatch_async(dispatch_get_main_queue(), ^{
-		ARIReapplyCategories();
-	});
+	if(ARIHasCategoryOverrides()) {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			ARIReapplyCategories();
+		});
+	} else {
+		effectiveMap = map;
+		ARIPublishCategories(map, map);
+	}
 }
 
 %end
@@ -181,11 +330,26 @@ static void ARIInstallCategoryHooks(void) {
 	%init(LibraryCategories);
 }
 
+static NSArray *ARICategorySnapshot(void) {
+	return @[ @(categoriesEnabled), appOverrides ?: @{}, nameOverrides ?: @{}, categoryOrder ?: @[], appOrder ?: @{}, customCategories ?: @[] ];
+}
+
+// Called on every preference write, so the App Library is rebuilt only when a category setting changed
 void ARICategoryPreferencesChanged(void) {
+	BOOL wasEnabled = categoriesEnabled;
 	BOOL wasActive = ARIHasCategoryOverrides();
+	NSArray *before = ARICategorySnapshot();
 	ARILoadCategoryPrefs();
 	if(categoriesEnabled) ARIInstallCategoryHooks();
-	if(hooksInstalled && (wasActive || ARIHasCategoryOverrides())) ARIReapplyCategories();
+	BOOL changed = ![before isEqual:ARICategorySnapshot()];
+	if(hooksInstalled && changed && (wasActive || ARIHasCategoryOverrides())) ARIReapplyCategories();
+	else if(categoriesEnabled && !wasEnabled && stockMap) ARIPublishCategories(stockMap, stockMap);
+
+	// Nothing reads the file with the switch off, and a stale one must not outlive it
+	if(wasEnabled && !categoriesEnabled) {
+		[[NSFileManager defaultManager] removeItemAtPath:ARILibraryCategoriesPath error:nil];
+		publishedCategories = nil;
+	}
 }
 
 static NSString *const ARICategoryMoveType = @"me.lau.atria.category.move";
@@ -203,16 +367,28 @@ BOOL ARIIsLibraryCategoryShortcut(NSString *type) {
 	return [type isEqualToString:ARICategoryMoveType] || [type isEqualToString:ARICategoryRenameType];
 }
 
-static NSArray<SBHLibraryCategoryIdentifier *> *ARIUserCategories(void) {
-	NSMutableArray *result = [NSMutableArray new];
+// In the order the App Library shows them, then custom categories nothing was moved into yet
+static NSArray<NSNumber *> *ARIUserCategories(void) {
+	NSMutableOrderedSet *result = [NSMutableOrderedSet new];
+	for(SBHLibraryCategoryIdentifier *identifier in [(effectiveMap ?: stockMap) categoryIdentifiers])
+		if(!ARIIsSystemCategory([identifier predictionCategoryID])) [result addObject:@([identifier predictionCategoryID])];
 	for(SBHLibraryCategoryIdentifier *identifier in [stockMap categoryIdentifiers])
-		if(!ARIIsSystemCategory([identifier predictionCategoryID])) [result addObject:identifier];
-	return result;
+		if(!ARIIsSystemCategory([identifier predictionCategoryID])) [result addObject:@([identifier predictionCategoryID])];
+	for(NSDictionary *custom in customCategories) [result addObject:custom[@"id"]];
+	return [result array];
 }
 
-static NSString *ARIDisplayName(SBHLibraryCategoryIdentifier *identifier) {
-	NSString *custom = nameOverrides[[@([identifier predictionCategoryID]) stringValue]];
-	return custom ?: [identifier localizedDisplayName];
+// The name before any rename: Apple's for a stock category, the one it was created with for a custom one
+static NSString *ARIBaseName(NSNumber *categoryID) {
+	for(SBHLibraryCategoryIdentifier *identifier in [stockMap categoryIdentifiers])
+		if([identifier predictionCategoryID] == [categoryID unsignedIntegerValue]) return [identifier localizedDisplayName];
+	for(NSDictionary *custom in customCategories)
+		if([custom[@"id"] isEqual:categoryID]) return custom[@"name"];
+	return [categoryID stringValue];
+}
+
+static NSString *ARIDisplayName(NSNumber *categoryID) {
+	return nameOverrides[[categoryID stringValue]] ?: ARIBaseName(categoryID);
 }
 
 static void ARIStoreOverride(NSString *key, NSDictionary *current, id dictKey, id value) {
@@ -246,9 +422,8 @@ static void ARIShowMoveSheet(NSString *bundleID, UIView *source) {
 	UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Move to Category"
 																   message:nil
 															preferredStyle:UIAlertControllerStyleActionSheet];
-	for(SBHLibraryCategoryIdentifier *identifier in ARIUserCategories()) {
-		NSNumber *target = @([identifier predictionCategoryID]);
-		[sheet addAction:[UIAlertAction actionWithTitle:ARIDisplayName(identifier)
+	for(NSNumber *target in ARIUserCategories()) {
+		[sheet addAction:[UIAlertAction actionWithTitle:ARIDisplayName(target)
 												  style:UIAlertActionStyleDefault
 												handler:^(UIAlertAction *action) {
 													ARIStoreOverride(ARILibraryCategoryAppsKey, appOverrides, bundleID, target);
@@ -265,14 +440,15 @@ static void ARIShowMoveSheet(NSString *bundleID, UIView *source) {
 	ARIPresentSheet(sheet, source);
 }
 
-static void ARIShowRenameAlert(SBHLibraryCategoryIdentifier *identifier, UIView *source) {
-	NSString *idString = [@([identifier predictionCategoryID]) stringValue];
+static void ARIShowRenameAlert(NSNumber *categoryID, UIView *source) {
+	NSString *idString = [categoryID stringValue];
+	NSString *baseName = ARIBaseName(categoryID);
 	UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Rename Category"
 																   message:nil
 															preferredStyle:UIAlertControllerStyleAlert];
 	[alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
-		field.text = ARIDisplayName(identifier);
-		field.placeholder = [identifier localizedDisplayName];
+		field.text = ARIDisplayName(categoryID);
+		field.placeholder = baseName;
 		field.clearButtonMode = UITextFieldViewModeWhileEditing;
 		field.returnKeyType = UIReturnKeyDone;
 	}];
@@ -282,7 +458,7 @@ static void ARIShowRenameAlert(SBHLibraryCategoryIdentifier *identifier, UIView 
 											handler:^(UIAlertAction *action) {
 												NSString *text = [weakAlert.textFields.firstObject.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 												if(![text length]) return;
-												id value = [text isEqualToString:[identifier localizedDisplayName]] ? nil : text;
+												id value = [text isEqualToString:baseName] ? nil : text;
 												ARIStoreOverride(ARILibraryCategoryNamesKey, nameOverrides, idString, value);
 											}]];
 	if(nameOverrides[idString]) {
@@ -300,12 +476,12 @@ static void ARIShowRenameSheet(UIView *source) {
 	UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Rename Category"
 																   message:nil
 															preferredStyle:UIAlertControllerStyleActionSheet];
-	for(SBHLibraryCategoryIdentifier *identifier in ARIUserCategories()) {
-		[sheet addAction:[UIAlertAction actionWithTitle:ARIDisplayName(identifier)
+	for(NSNumber *categoryID in ARIUserCategories()) {
+		[sheet addAction:[UIAlertAction actionWithTitle:ARIDisplayName(categoryID)
 												  style:UIAlertActionStyleDefault
 												handler:^(UIAlertAction *action) {
 													dispatch_async(dispatch_get_main_queue(), ^{
-														ARIShowRenameAlert(identifier, source);
+														ARIShowRenameAlert(categoryID, source);
 													});
 												}]];
 	}

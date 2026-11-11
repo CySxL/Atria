@@ -9,3 +9,6 @@
 
 #define ARIPrefsBundlePath(...) ARIRootPath([@"/Library/PreferenceBundles/AtriaPrefs.bundle" stringByAppendingString:(__VA_ARGS__)])
 #define ARIDylibPath(...) ARIRootPath([@"/Library/MobileSubstrate/DynamicLibraries/" stringByAppendingString:(__VA_ARGS__)])
+
+// Written by SpringBoard while Custom Categories is on, read by the settings page
+#define ARILibraryCategoriesPath ARIRootPath(@"/var/mobile/Library/Preferences/com.cysxl.atria.categories.plist")
