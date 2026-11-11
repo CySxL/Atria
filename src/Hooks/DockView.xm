@@ -46,22 +46,21 @@ static BOOL ARIMovePodBeforeRecents(SBFloatingDockView *dock) {
     }
     if(!pod || pod.hidden) return NO;
 
-    CGFloat first = CGFLOAT_MAX;
-    CGFloat last = -CGFLOAT_MAX;
-    for(UIView *view in recents.subviews) {
-        if(![view isKindOfClass:iconViewClass]) continue;
-        first = MIN(first, view.frame.origin.x);
-        last = MAX(last, view.frame.origin.x);
-    }
-    if(first == CGFLOAT_MAX) return NO;
+    // Slots come from the list's layout, not its subviews: an icon view being removed
+    // (a recent replaced by Handoff) stays among them at a stale x.
+    if(![recents respondsToSelector:@selector(icons)] || ![recents respondsToSelector:@selector(centerForIconAtIndex:)])
+        return NO;
+    SBIconListView *list = (SBIconListView *)recents;
+    NSUInteger count = [list icons].count;
+    if(count == 0) return NO;
+    CGFloat first = [list centerForIconAtIndex:0].x;
+    CGFloat last = [list centerForIconAtIndex:count - 1].x;
 
     // The stock gap between the last recent and the pod
-    CGFloat pitch = CGRectGetMinX(pod.frame) - (CGRectGetMinX(recents.frame) + last);
+    CGFloat pitch = pod.center.x - (CGRectGetMinX(recents.frame) + last);
     if(pitch <= 0) return NO;
 
-    CGRect podFrame = pod.frame;
-    podFrame.origin.x = CGRectGetMinX(recents.frame) + first;
-    pod.frame = podFrame;
+    pod.center = CGPointMake(CGRectGetMinX(recents.frame) + first, pod.center.y);
     recents.frame = CGRectOffset(recents.frame, pitch, 0);
     return YES;
 }

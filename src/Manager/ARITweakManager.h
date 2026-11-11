@@ -138,6 +138,7 @@ typedef struct SBRootFolderViewMetrics {
 - (struct SBIconCoordinate)coordinateForIcon:(id)icon;
 - (CGPoint)originForIconAtCoordinate:(struct SBIconCoordinate)co metrics:(id)metrics;
 - (CGPoint)centerForIconCoordinate:(struct SBIconCoordinate)co metrics:(id)metrics;
+- (CGPoint)centerForIconAtIndex:(unsigned long long)index;
 - (CGSize)iconImageSizeForGridSizeClass:(NSUInteger)size;
 - (CGSize)effectiveIconSpacing;
 - (SBIconListModel *)model;
