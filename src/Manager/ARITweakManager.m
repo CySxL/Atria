@@ -707,7 +707,19 @@ static SBIconListView *ARIFindDockListView(UIView *view, NSInteger depth) {
 }
 
 - (SBRootFolderView *)rootFolderView {
-    return [[[ARIIconControllerClass() sharedInstance] _rootFolderController] rootFolderView];
+    // iOS 26 dropped -[SBIconController _rootFolderController]
+    static BOOL fromIconController, fromIconManager;
+    static dispatch_once_t token;
+    dispatch_once(&token, ^{
+        fromIconController = [ARIIconControllerClass() instancesRespondToSelector:@selector(_rootFolderController)];
+        fromIconManager = [objc_getClass("SBHIconManager") instancesRespondToSelector:@selector(rootFolderController)];
+    });
+
+    SBIconController *iconController = [ARIIconControllerClass() sharedInstance];
+    id controller = nil;
+    if(fromIconController) controller = [iconController _rootFolderController];
+    else if(fromIconManager) controller = [[iconController iconManager] rootFolderController];
+    return [controller respondsToSelector:@selector(rootFolderView)] ? [controller rootFolderView] : nil;
 }
 
 - (NSArray<SBIconListView *> *)allRootListViews {

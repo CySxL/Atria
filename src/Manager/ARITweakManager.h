@@ -172,6 +172,7 @@ typedef struct SBRootFolderViewMetrics {
 @interface SBHIconManager : NSObject
 @property (nonatomic, assign, getter=isEditing) BOOL editing;
 - (SBIconListModel *)iconModel;
+- (SBRootFolderController *)rootFolderController;
 - (BOOL)relayout;
 @end
 
