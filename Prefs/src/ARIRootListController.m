@@ -274,6 +274,21 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
         source->action = @selector(openSource);
         [developerRows addObject:source];
 
+        PSSpecifier *port = [PSSpecifier preferenceSpecifierNamed:@"s-gdn" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
+        [port setProperty:[ARICreditCell class] forKey:@"cellClass"];
+        [port setProperty:@"iOS 17 Port" forKey:@"subtitle"];
+        [port setProperty:ARISymbol(@"chevron.left.forwardslash.chevron.right", kARIAvatarSide) forKey:@"iconImage"];
+        [port setProperty:@YES forKey:@"ariBranchBelow"];
+        port->action = @selector(openPortAuthor);
+        [developerRows addObject:port];
+
+        PSSpecifier *portSource = [PSSpecifier preferenceSpecifierNamed:@"Source Code" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
+        [portSource setProperty:[ARICreditCell class] forKey:@"cellClass"];
+        [portSource setProperty:@YES forKey:@"ariBranch"];
+        [portSource setProperty:@34 forKey:@"height"];
+        portSource->action = @selector(openPortSource);
+        [developerRows addObject:portSource];
+
         PSSpecifier *credit = [PSSpecifier preferenceSpecifierNamed:@"CySxL" target:self set:NULL get:NULL detail:nil cell:PSLinkCell edit:nil];
         [credit setProperty:[ARICreditCell class] forKey:@"cellClass"];
         [credit setProperty:@"Maintainer · Roothide Port" forKey:@"subtitle"];
@@ -465,6 +480,14 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
 
 - (void)openSource {
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/ren7995/Atria"] options:@{} completionHandler:nil];
+}
+
+- (void)openPortAuthor {
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/s-gdn"] options:@{} completionHandler:nil];
+}
+
+- (void)openPortSource {
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/s-gdn/Atria-iOS17"] options:@{} completionHandler:nil];
 }
 
 - (void)openKofi {
