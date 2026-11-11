@@ -17,6 +17,16 @@ template <typename Type_>
 static inline Type_ *ARIIvarPointer(id object, const char *name) {
 	Ivar ivar = class_getInstanceVariable(object_getClass(object), name);
 	if(!ivar) return NULL;
+	// _gridSizeClassSizes is not this struct on iOS 26, and writing one over it crashes at launch
+	const char *encoding = ivar_getTypeEncoding(ivar);
+	if(!encoding || encoding[0] != '{') return NULL;
+	NSUInteger size = 0;
+	@try {
+		NSGetSizeAndAlignment(encoding, &size, NULL);
+	} @catch(NSException *e) {
+		return NULL;
+	}
+	if(size != sizeof(Type_)) return NULL;
 	return reinterpret_cast<Type_ *>(reinterpret_cast<char *>((__bridge void *)object) + ivar_getOffset(ivar));
 }
 
