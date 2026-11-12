@@ -34,12 +34,38 @@
 - (void)_reloadCategoryViewsForDataSourceChangeAnimated:(BOOL)animated;
 @end
 
+@interface SBHLibraryCategoryStackView : UIView
+- (NSArray *)innerIcons;
+- (void)_updateIconImageViewAtIndex:(NSUInteger)index animated:(BOOL)animated;
+@end
+
+struct ARIIconImageInfo {
+	CGSize size;
+	CGFloat scale;
+	CGFloat continuousCornerRadius;
+};
+
+@interface NSObject (ARIDockTile)
+- (BOOL)isAdditionalItemsIndicatorIcon;
+- (id)category;
+- (id)compactPodAdditionalItemsFolder;
+- (NSArray *)icons;
+- (UIImage *)imageForIcon:(id)icon;
+- (id)layoutForIconLocation:(NSString *)location;
+- (id)layoutConfiguration;
+- (id)folderIconVisualConfiguration;
+- (CGSize)gridCellSize;
+- (CGSize)gridCellSpacing;
+- (struct ARIIconImageInfo)iconImageInfo;
+@end
+
 // Suggestions and Recently Added are rebuilt by the system on their own schedule
 static const NSUInteger ARISuggestedCategoryID = 3;
 static const NSUInteger ARIRecentCategoryID = 4;
 
 ARI_CACHED_CLASS(ARICategoryIdentifierClass, "SBHLibraryCategoryIdentifier")
 ARI_CACHED_CLASS(ARILibraryIconViewControllerClass, "SBHLibraryIconViewController")
+ARI_CACHED_CLASS(ARICategoryStackViewClass, "SBHLibraryCategoryStackView")
 
 // Custom categories take IDs from here up, clear of Apple's 1xxx and 6xxx
 static const NSUInteger ARIFirstCustomCategoryID = 9001;
@@ -73,6 +99,12 @@ static BOOL ARIIsHiddenCategory(NSUInteger categoryID) {
 
 static NSUInteger ARIDockCategory(void) {
 	return categoriesEnabled ? dockCategoryID : 0;
+}
+
+// The dock icon shows something other than Suggestions, the only category without an
+// additional items tile
+static BOOL ARIDockIconCustomized(void) {
+	return categoriesEnabled && (dockCategoryID || hideSuggestions);
 }
 
 static NSArray<NSString *> *ARIStringArray(id raw) {
@@ -331,7 +363,7 @@ static void ARIReapplyCategories(void) {
 	%orig(effective);
 	ARIPublishCategories(stockMap, effective);
 	// Whether Apple redraws the dock icon for a change outside its first category is not known, so it is asked
-	if(ARIDockCategory()) ARIRedrawDockIcons();
+	if(ARIDockIconCustomized()) ARIRedrawDockIcons();
 }
 
 // Runs about once a second while idle. A map arriving here that did not come through
@@ -361,11 +393,41 @@ static void ARIReapplyCategories(void) {
 // redirected, so the App Library's own pods never change.
 static NSUInteger dockReloadDepth;
 
+static id ARIObjectIvar(id object, const char *name) {
+	Ivar ivar = object ? class_getInstanceVariable(object_getClass(object), name) : NULL;
+	const char *type = ivar ? ivar_getTypeEncoding(ivar) : NULL;
+	if(!type || type[0] != '@') return nil;
+	return object_getIvar(object, ivar);
+}
+
+// The additional items tile's small icons and the gap between them, as fractions of the tile,
+// from the layout Apple draws that tile with. 0 until read.
+static CGFloat tileCellFraction;
+static CGFloat tileGapFraction;
+
+static void ARIReadTileFigures(SBHLibraryIconViewController *controller) {
+	id provider = ARIObjectIvar(controller, "_listLayoutProvider");
+	if(![provider respondsToSelector:@selector(layoutForIconLocation:)]) return;
+	id layout = [provider layoutForIconLocation:@"SBIconLocationAppLibraryCategoryPodAdditionalItems"];
+	if(![layout respondsToSelector:@selector(layoutConfiguration)] || ![layout respondsToSelector:@selector(iconImageInfo)]) return;
+	id configuration = [layout layoutConfiguration];
+	if(![configuration respondsToSelector:@selector(folderIconVisualConfiguration)]) return;
+	id visual = [configuration folderIconVisualConfiguration];
+	if(![visual respondsToSelector:@selector(gridCellSize)] || ![visual respondsToSelector:@selector(gridCellSpacing)]) return;
+	CGFloat tile = [layout iconImageInfo].size.width;
+	CGFloat cell = [visual gridCellSize].width;
+	CGFloat gap = [visual gridCellSpacing].width;
+	if(tile <= 0 || cell <= 0 || gap < 0 || 2 * cell + gap > tile) return;
+	tileCellFraction = cell / tile;
+	tileGapFraction = gap / tile;
+}
+
 %group LibraryDockCategory
 
 %hook SBHLibraryIconViewController
 
 - (void)_reloadCategoryViewsForDataSourceChangeAnimated:(BOOL)animated {
+	if(ARIDockIconCustomized()) ARIReadTileFigures(self);
 	dockReloadDepth++;
 	%orig;
 	dockReloadDepth--;
@@ -392,6 +454,63 @@ static NSUInteger dockReloadDepth;
 
 %end
 
+// The dock icon's stack view draws each inner icon as one image, and the additional items
+// tile has none, so its slot would stay empty. It gets the tile's first four apps instead,
+// laid out as the App Library draws them.
+%group LibraryDockTile
+
+%hook SBHLibraryCategoryStackView
+
+- (void)_updateIconImageViewAtIndex:(NSUInteger)index animated:(BOOL)animated {
+	%orig;
+	if(!ARIDockIconCustomized()) return;
+	// Unknown until a reload has read them, so the first draw asks the controller itself
+	if(tileCellFraction <= 0) {
+		UIResponder *responder = self;
+		while(responder && ![responder isKindOfClass:ARILibraryIconViewControllerClass()]) responder = [responder nextResponder];
+		if(responder) ARIReadTileFigures((SBHLibraryIconViewController *)responder);
+		if(tileCellFraction <= 0) return;
+	}
+
+	NSArray *innerIcons = [self innerIcons];
+	if(![innerIcons isKindOfClass:[NSArray class]] || index >= [innerIcons count]) return;
+	id tile = innerIcons[index];
+	if(![tile respondsToSelector:@selector(isAdditionalItemsIndicatorIcon)] || ![tile isAdditionalItemsIndicatorIcon] || ![tile respondsToSelector:@selector(category)]) return;
+	id category = [tile category];
+	id folder = [category respondsToSelector:@selector(compactPodAdditionalItemsFolder)] ? [category compactPodAdditionalItemsFolder] : nil;
+	NSArray *apps = [folder respondsToSelector:@selector(icons)] ? [folder icons] : nil;
+	NSArray *imageViews = ARIObjectIvar(self, "_iconImageViews");
+	id cache = ARIObjectIvar(self, "_iconImageCache");
+	if(![apps isKindOfClass:[NSArray class]] || ![imageViews isKindOfClass:[NSArray class]] || index >= [imageViews count] || ![cache respondsToSelector:@selector(imageForIcon:)]) return;
+	UIImageView *slot = imageViews[index];
+	if(![slot isKindOfClass:[UIImageView class]]) return;
+
+	CGFloat side = MIN(slot.bounds.size.width, slot.bounds.size.height);
+	if(side <= 0) return;
+	CGFloat cell = side * tileCellFraction;
+	CGFloat gap = side * tileGapFraction;
+	CGFloat inset = (side - 2 * cell - gap) / 2;
+
+	NSMutableArray<UIImage *> *images = [NSMutableArray new];
+	for(id app in apps) {
+		if([images count] == 4) break;
+		UIImage *image = [cache imageForIcon:app];
+		if([image isKindOfClass:[UIImage class]]) [images addObject:image];
+	}
+	if(![images count]) return;
+
+	UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(side, side) format:[UIGraphicsImageRendererFormat preferredFormat]];
+	slot.image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+		[images enumerateObjectsUsingBlock:^(UIImage *image, NSUInteger i, BOOL *stop) {
+			[image drawInRect:CGRectMake(inset + (i % 2) * (cell + gap), inset + (i / 2) * (cell + gap), cell, cell)];
+		}];
+	}];
+}
+
+%end
+
+%end
+
 static BOOL hooksInstalled;
 static BOOL dockHooksInstalled;
 
@@ -401,33 +520,37 @@ static void ARIInstallCategoryHooks(void) {
 	%init(LibraryCategories);
 }
 
-// Only once a dock category is chosen, and only where both methods exist
+// Only once the dock icon shows something other than Suggestions, and only where the methods exist
 static void ARIInstallDockHooks(void) {
-	if(dockHooksInstalled || !hooksInstalled || !ARIDockCategory()) return;
+	if(dockHooksInstalled || !hooksInstalled || !ARIDockIconCustomized()) return;
 	Class controllerClass = ARILibraryIconViewControllerClass();
 	if(![controllerClass instancesRespondToSelector:@selector(_reloadCategoryViewsForDataSourceChangeAnimated:)]) return;
 	Class dataSourceClass = objc_getClass("SBHLibraryCategoriesFolderDataSource");
 	if(![dataSourceClass instancesRespondToSelector:@selector(categoryForIdentifier:)] || ![dataSourceClass instancesRespondToSelector:@selector(categoryIdentifiers)]) return;
 	dockHooksInstalled = YES;
 	%init(LibraryDockCategory);
+
+	Class stackClass = ARICategoryStackViewClass();
+	if([stackClass instancesRespondToSelector:@selector(_updateIconImageViewAtIndex:animated:)] && [stackClass instancesRespondToSelector:@selector(innerIcons)])
+		%init(LibraryDockTile);
 }
 
-static id ARIObjectIvar(id object, const char *name) {
-	Ivar ivar = object ? class_getInstanceVariable(object_getClass(object), name) : NULL;
-	const char *type = ivar ? ivar_getTypeEncoding(ivar) : NULL;
-	if(!type || type[0] != '@') return nil;
-	return object_getIvar(object, ivar);
-}
+static BOOL dockRedrawPending;
 
 // A reload of the data source with unchanged content does not redraw the dock icon, so a
-// change of the dock category alone asks each icon controller observing it directly
+// change of the dock category alone asks each icon controller observing it directly. Calls
+// in the same run loop turn share one redraw, made after the data source has finished.
 static void ARIRedrawDockIcons(void) {
-	if(!dockHooksInstalled) return;
-	NSHashTable *observers = ARIObjectIvar(liveDataSource, "_observers");
-	if(![observers isKindOfClass:[NSHashTable class]]) return;
-	Class controllerClass = ARILibraryIconViewControllerClass();
-	for(id observer in [observers allObjects])
-		if([observer isKindOfClass:controllerClass]) [observer _reloadCategoryViewsForDataSourceChangeAnimated:NO];
+	if(!dockHooksInstalled || dockRedrawPending) return;
+	dockRedrawPending = YES;
+	dispatch_async(dispatch_get_main_queue(), ^{
+		dockRedrawPending = NO;
+		NSHashTable *observers = ARIObjectIvar(liveDataSource, "_observers");
+		if(![observers isKindOfClass:[NSHashTable class]]) return;
+		Class controllerClass = ARILibraryIconViewControllerClass();
+		for(id observer in [observers allObjects])
+			if([observer isKindOfClass:controllerClass]) [observer _reloadCategoryViewsForDataSourceChangeAnimated:NO];
+	});
 }
 
 // What the App Library is built from. The dock category is left out: it changes only the dock icon.
@@ -441,13 +564,14 @@ void ARICategoryPreferencesChanged(void) {
 	BOOL wasActive = ARIHasCategoryOverrides();
 	NSArray *before = ARICategorySnapshot();
 	NSUInteger dockBefore = ARIDockCategory();
+	BOOL customizedBefore = ARIDockIconCustomized();
 	ARILoadCategoryPrefs();
 	if(categoriesEnabled) ARIInstallCategoryHooks();
 	ARIInstallDockHooks();
 	BOOL changed = ![before isEqual:ARICategorySnapshot()];
 	if(hooksInstalled && changed && (wasActive || ARIHasCategoryOverrides())) ARIReapplyCategories();
 	else if(categoriesEnabled && !wasEnabled && stockMap) ARIPublishCategories(stockMap, stockMap);
-	if(dockBefore != ARIDockCategory()) ARIRedrawDockIcons();
+	if(dockBefore != ARIDockCategory() || customizedBefore != ARIDockIconCustomized()) ARIRedrawDockIcons();
 
 	// Nothing reads the file with the switch off, and a stale one must not outlive it
 	if(wasEnabled && !categoriesEnabled) {
