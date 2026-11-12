@@ -70,6 +70,7 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
     BOOL _dockChanged;
     NSCache *_appNames;
     NSCache *_appIcons;
+    id _backgroundObserver;
 }
 
 - (instancetype)initWithMode:(ARICategoryEditorMode)mode {
@@ -97,11 +98,28 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
                                                                                                target:self
                                                                                                action:@selector(_addCategory)];
     }
+
+    // Settings can be killed from the switcher without the page ever disappearing
+    __weak typeof(self) weakSelf = self;
+    _backgroundObserver = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidEnterBackgroundNotification
+                                                                            object:nil
+                                                                             queue:[NSOperationQueue mainQueue]
+                                                                        usingBlock:^(NSNotification *note) {
+                                                                            [weakSelf _saveIfDirty];
+                                                                        }];
 }
 
+- (void)dealloc {
+    if(_backgroundObserver) [[NSNotificationCenter defaultCenter] removeObserver:_backgroundObserver];
+}
+
+// Each save rebuilds the home screen, so it waits for leaving the page or the app
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-    // Each save rebuilds the home screen, so it happens once on the way out
+    [self _saveIfDirty];
+}
+
+- (void)_saveIfDirty {
     if(_dirty) [self _save];
 }
 
@@ -249,6 +267,14 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
     store(customs, ARILibraryCustomCategoriesKey);
     [defaults synchronize];
     CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("me.lau.Atria/ReloadPrefs"), NULL, NULL, YES);
+
+    // Saved now, so a later save must not replay these over a long-press change made in between
+    [_touched removeAllObjects];
+    [_movedApps removeAllObjects];
+    [_renamed removeAllObjects];
+    [_deleted removeAllObjects];
+    _reordered = NO;
+    _dockChanged = NO;
     _dirty = NO;
 }
 
