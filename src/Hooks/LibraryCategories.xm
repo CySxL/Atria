@@ -24,7 +24,8 @@
 @end
 
 @interface SBHLibraryCategoriesFolderDataSource : NSObject
-- (void)reloadDataWithCategoryMap:(SBHLibraryCategoryMap *)map;
+// Both reloads return an object on iOS 16, so the hooks hand it back
+- (id)reloadDataWithCategoryMap:(SBHLibraryCategoryMap *)map;
 - (id)categoryForIdentifier:(SBHLibraryCategoryIdentifier *)identifier;
 - (NSArray *)categoryIdentifiers;
 @end
@@ -350,25 +351,26 @@ static void ARIReapplyCategories(void) {
 
 %hook SBHLibraryCategoriesFolderDataSource
 
-- (void)reloadDataWithCategoryMap:(SBHLibraryCategoryMap *)map {
+- (id)reloadDataWithCategoryMap:(SBHLibraryCategoryMap *)map {
 	liveDataSource = self;
 	if(map && map != producedMap) stockMap = map;
 	SBHLibraryCategoryMap *effective = ARIApplyCategoryOverrides(map);
 	effectiveMap = effective;
-	%orig(effective);
+	id result = %orig(effective);
 	ARIPublishCategories(stockMap, effective);
 	// Whether Apple redraws the dock icon for a change outside its first category is not known, so it is asked
 	if(ARIDockIconCustomized()) ARIRedrawDockIcons();
+	return result;
 }
 
 // Runs about once a second while idle. A map arriving here that did not come through
 // reloadDataWithCategoryMap: (the one loaded from disk at launch) gets the overrides once.
-- (void)reloadDataSourceUsingIcons:(id)icons categoryMap:(SBHLibraryCategoryMap *)map {
-	%orig;
-	if(!map || map == lastSeenMap) return;
+- (id)reloadDataSourceUsingIcons:(id)icons categoryMap:(SBHLibraryCategoryMap *)map {
+	id result = %orig;
+	if(!map || map == lastSeenMap) return result;
 	lastSeenMap = map;
 	liveDataSource = self;
-	if(map == producedMap) return;
+	if(map == producedMap) return result;
 	stockMap = map;
 	if(ARIHasCategoryOverrides()) {
 		dispatch_async(dispatch_get_main_queue(), ^{
@@ -378,6 +380,7 @@ static void ARIReapplyCategories(void) {
 		effectiveMap = map;
 		ARIPublishCategories(map, map);
 	}
+	return result;
 }
 
 %end
