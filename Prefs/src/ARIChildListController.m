@@ -220,9 +220,7 @@ static UIImage *ARISwatch(UIColor *color) {
                                               style:UIAlertActionStyleDestructive
                                             handler:^(UIAlertAction *action) {
                                                 NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
-                                                for(NSString *key in @[ ARILibraryCategoryAppsKey, ARILibraryCategoryNamesKey, ARILibraryCategoryOrderKey,
-                                                                        ARILibraryCategoryAppOrderKey, ARILibraryCustomCategoriesKey, ARILibraryCategoryNextIDKey,
-                                                                        ARILibraryHideSuggestionsKey, ARILibraryHideRecentKey, ARILibraryDockCategoryKey ])
+                                                for(NSString *key in ARILibraryCategoryKeys)
                                                     [defaults removeObjectForKey:key];
                                                 [defaults synchronize];
                                                 CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("me.lau.Atria/ReloadPrefs"), NULL, NULL, YES);

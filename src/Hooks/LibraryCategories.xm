@@ -59,16 +59,9 @@ struct ARIIconImageInfo {
 - (struct ARIIconImageInfo)iconImageInfo;
 @end
 
-// Suggestions and Recently Added are rebuilt by the system on their own schedule
-static const NSUInteger ARISuggestedCategoryID = 3;
-static const NSUInteger ARIRecentCategoryID = 4;
-
 ARI_CACHED_CLASS(ARICategoryIdentifierClass, "SBHLibraryCategoryIdentifier")
 ARI_CACHED_CLASS(ARILibraryIconViewControllerClass, "SBHLibraryIconViewController")
 ARI_CACHED_CLASS(ARICategoryStackViewClass, "SBHLibraryCategoryStackView")
-
-// Custom categories take IDs from here up, clear of Apple's 1xxx and 6xxx
-static const NSUInteger ARIFirstCustomCategoryID = 9001;
 
 static BOOL categoriesEnabled;
 static NSDictionary<NSString *, NSNumber *> *appOverrides;

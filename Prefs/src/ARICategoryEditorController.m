@@ -11,8 +11,6 @@
 - (NSString *)localizedName;
 @end
 
-static const NSUInteger ARIFirstCustomCategoryID = 9001;
-
 static NSArray<NSString *> *ARIStrings(id raw) {
     if(![raw isKindOfClass:[NSArray class]]) return @[];
     NSMutableArray *result = [NSMutableArray new];

@@ -8,17 +8,10 @@
 
 #import "../Options/ARIOption.h"
 
+#import "../ARICategoryKeys.h"
+
 static NSString *const ARIPreferenceDomain = @"me.lau.AtriaPrefs";
 static NSString *const ARIPerPageListViewsKey = @"_perPageListViews";
-static NSString *const ARILibraryCategoryAppsKey = @"libraryCategoryApps";
-static NSString *const ARILibraryCategoryNamesKey = @"libraryCategoryNames";
-static NSString *const ARILibraryCategoryOrderKey = @"libraryCategoryOrder";
-static NSString *const ARILibraryCategoryAppOrderKey = @"libraryCategoryAppOrder";
-static NSString *const ARILibraryCustomCategoriesKey = @"libraryCustomCategories";
-static NSString *const ARILibraryCategoryNextIDKey = @"libraryCategoryNextID";
-static NSString *const ARILibraryHideSuggestionsKey = @"libraryHideSuggestions";
-static NSString *const ARILibraryHideRecentKey = @"libraryHideRecent";
-static NSString *const ARILibraryDockCategoryKey = @"libraryDockCategory";
 
 static const NSTimeInterval ARIDragApplyInterval = 1.0 / 60.0;
 // Grid sizes are shorts, and 0x7F is what SpringBoard is handed once launched

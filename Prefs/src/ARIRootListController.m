@@ -453,7 +453,7 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
         if([key isEqualToString:ARILibraryDockCategoryKey]) {
             if(![value isKindOfClass:[NSNumber class]]) continue;
             NSUInteger categoryID = [value unsignedIntegerValue];
-            if(categoryID >= 1 && categoryID != 3 && categoryID != 4) accepted[key] = @(categoryID);
+            if(categoryID >= 1 && categoryID != ARISuggestedCategoryID && categoryID != ARIRecentCategoryID) accepted[key] = @(categoryID);
             continue;
         }
 
@@ -491,7 +491,7 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
                 id categoryID = ((NSDictionary *)entry)[@"id"];
                 id name = ((NSDictionary *)entry)[@"name"];
                 if(![categoryID isKindOfClass:[NSNumber class]] || ![name isKindOfClass:[NSString class]] || ![name length]) continue;
-                if([categoryID unsignedIntegerValue] < 9001 || [seen containsObject:categoryID]) continue;
+                if([categoryID unsignedIntegerValue] < ARIFirstCustomCategoryID || [seen containsObject:categoryID]) continue;
                 [seen addObject:categoryID];
                 [entries addObject:@{ @"id" : categoryID, @"name" : name }];
             }
