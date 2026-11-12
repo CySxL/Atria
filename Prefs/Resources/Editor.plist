@@ -58,8 +58,8 @@
 			<key>label</key>
 			<string>Activation Settings</string>
 			<key>footerText</key>
-			<string>Hide Actions: Hides Atria's 3D touch actions from the menu. Turn on if you are done configuring, and do not want to see the options. 
-Disable Tap Gesture: Disables the triple tap gesture that can be used to invoke Atria from the homescren pages</string>
+			<string>Hide Actions removes the layout editing actions from the long press menu once you are done setting up. The App Library category actions follow Custom Categories instead.
+Disable Tap Gesture turns off the triple tap on the home screen pages that opens the editor.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
