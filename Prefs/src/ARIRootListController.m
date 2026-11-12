@@ -373,12 +373,40 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
 - (void)exportSettingsString {
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
     [defaults synchronize];
-    NSMutableDictionary *dict = [[defaults persistentDomainForName:ARIPreferenceDomain] mutableCopy]
-                                    ?: [NSMutableDictionary new];
+    NSDictionary *domain = [defaults persistentDomainForName:ARIPreferenceDomain];
+    BOOL listsApps = NO;
+    for(NSString *key in @[ ARILibraryCategoryAppsKey, ARILibraryCategoryAppOrderKey, ARILibraryCategoryNamesKey, ARILibraryCustomCategoriesKey ])
+        listsApps = listsApps || domain[key] != nil;
+    if(!listsApps) {
+        [self _exportSettingsFromDomain:domain includingCategories:NO];
+        return;
+    }
+
+    // The string is both a backup and something shared, and the categories name installed apps
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Include App Library Categories?"
+                                                                   message:@"Your installed apps will be listed. Exclude them can protect your privacy."
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Include Categories"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+                                                [self _exportSettingsFromDomain:domain includingCategories:YES];
+                                            }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Without Categories"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+                                                [self _exportSettingsFromDomain:domain includingCategories:NO];
+                                            }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)_exportSettingsFromDomain:(NSDictionary *)domain includingCategories:(BOOL)categories {
+    NSMutableDictionary *dict = [domain mutableCopy] ?: [NSMutableDictionary new];
 
     for(NSString *key in [dict allKeys])
         if([key hasPrefix:@"_"] && ![key isEqualToString:ARIPerPageListViewsKey])
             [dict removeObjectForKey:key];
+    if(!categories) [dict removeObjectsForKeys:ARILibraryCategoryPersonalKeys];
 
     // Easier to make it json imho
     NSError *error;
