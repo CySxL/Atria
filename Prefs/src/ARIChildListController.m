@@ -214,7 +214,7 @@ static UIImage *ARISwatch(UIColor *color) {
 
 - (void)resetLibraryCategories:(PSSpecifier *)specifier {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Reset Categories"
-                                                                   message:@"Every app and category returns to its original place and name, and added categories are removed."
+                                                                   message:@"The App Library and dock return to how iOS arranges them, and added categories are removed."
                                                             preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Reset"
                                               style:UIAlertActionStyleDestructive
@@ -222,7 +222,7 @@ static UIImage *ARISwatch(UIColor *color) {
                                                 NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
                                                 for(NSString *key in @[ ARILibraryCategoryAppsKey, ARILibraryCategoryNamesKey, ARILibraryCategoryOrderKey,
                                                                         ARILibraryCategoryAppOrderKey, ARILibraryCustomCategoriesKey, ARILibraryCategoryNextIDKey,
-                                                                        ARILibraryHideSuggestionsKey, ARILibraryHideRecentKey ])
+                                                                        ARILibraryHideSuggestionsKey, ARILibraryHideRecentKey, ARILibraryDockCategoryKey ])
                                                     [defaults removeObjectForKey:key];
                                                 [defaults synchronize];
                                                 CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("me.lau.Atria/ReloadPrefs"), NULL, NULL, YES);

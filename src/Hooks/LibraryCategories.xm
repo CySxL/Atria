@@ -25,6 +25,13 @@
 
 @interface SBHLibraryCategoriesFolderDataSource : NSObject
 - (void)reloadDataWithCategoryMap:(SBHLibraryCategoryMap *)map;
+- (id)categoryForIdentifier:(SBHLibraryCategoryIdentifier *)identifier;
+- (NSArray *)categoryIdentifiers;
+@end
+
+// The dock's App Library icon, an observer of the data source
+@interface SBHLibraryIconViewController : UIViewController
+- (void)_reloadCategoryViewsForDataSourceChangeAnimated:(BOOL)animated;
 @end
 
 // Suggestions and Recently Added are rebuilt by the system on their own schedule
@@ -32,6 +39,7 @@ static const NSUInteger ARISuggestedCategoryID = 3;
 static const NSUInteger ARIRecentCategoryID = 4;
 
 ARI_CACHED_CLASS(ARICategoryIdentifierClass, "SBHLibraryCategoryIdentifier")
+ARI_CACHED_CLASS(ARILibraryIconViewControllerClass, "SBHLibraryIconViewController")
 
 // Custom categories take IDs from here up, clear of Apple's 1xxx and 6xxx
 static const NSUInteger ARIFirstCustomCategoryID = 9001;
@@ -44,6 +52,8 @@ static NSDictionary<NSString *, NSArray<NSString *> *> *appOrder;
 static NSArray<NSDictionary *> *customCategories;
 static BOOL hideSuggestions;
 static BOOL hideRecent;
+// 0 when the dock icon shows the first category, as stock does
+static NSUInteger dockCategoryID;
 
 static __weak SBHLibraryCategoriesFolderDataSource *liveDataSource;
 static SBHLibraryCategoryMap *stockMap;
@@ -59,6 +69,10 @@ static BOOL ARIIsSystemCategory(NSUInteger categoryID) {
 
 static BOOL ARIIsHiddenCategory(NSUInteger categoryID) {
 	return (categoryID == ARISuggestedCategoryID && hideSuggestions) || (categoryID == ARIRecentCategoryID && hideRecent);
+}
+
+static NSUInteger ARIDockCategory(void) {
+	return categoriesEnabled ? dockCategoryID : 0;
 }
 
 static NSArray<NSString *> *ARIStringArray(id raw) {
@@ -123,6 +137,9 @@ static void ARILoadCategoryPrefs(void) {
 
 	hideSuggestions = [manager boolValueForKey:ARILibraryHideSuggestionsKey];
 	hideRecent = [manager boolValueForKey:ARILibraryHideRecentKey];
+	raw = [manager rawValueForKey:ARILibraryDockCategoryKey];
+	NSUInteger dock = [raw isKindOfClass:[NSNumber class]] ? [raw unsignedIntegerValue] : 0;
+	dockCategoryID = ARIIsSystemCategory(dock) ? 0 : dock;
 }
 
 static BOOL ARIHasCategoryOverrides(void) {
@@ -295,6 +312,8 @@ static void ARIPublishCategories(SBHLibraryCategoryMap *stock, SBHLibraryCategor
 	if([categories writeToURL:[NSURL fileURLWithPath:ARILibraryCategoriesPath] error:nil]) publishedCategories = categories;
 }
 
+static void ARIRedrawDockIcons(void);
+
 static void ARIReapplyCategories(void) {
 	SBHLibraryCategoriesFolderDataSource *dataSource = liveDataSource;
 	if(dataSource && stockMap) [dataSource reloadDataWithCategoryMap:stockMap];
@@ -311,6 +330,8 @@ static void ARIReapplyCategories(void) {
 	effectiveMap = effective;
 	%orig(effective);
 	ARIPublishCategories(stockMap, effective);
+	// Whether Apple redraws the dock icon for a change outside its first category is not known, so it is asked
+	if(ARIDockCategory()) ARIRedrawDockIcons();
 }
 
 // Runs about once a second while idle. A map arriving here that did not come through
@@ -336,7 +357,43 @@ static void ARIReapplyCategories(void) {
 
 %end
 
+// The dock icon draws the first category it is handed during its reload. Only that lookup is
+// redirected, so the App Library's own pods never change.
+static NSUInteger dockReloadDepth;
+
+%group LibraryDockCategory
+
+%hook SBHLibraryIconViewController
+
+- (void)_reloadCategoryViewsForDataSourceChangeAnimated:(BOOL)animated {
+	dockReloadDepth++;
+	%orig;
+	dockReloadDepth--;
+}
+
+%end
+
+%hook SBHLibraryCategoriesFolderDataSource
+
+- (id)categoryForIdentifier:(SBHLibraryCategoryIdentifier *)identifier {
+	NSUInteger chosen = ARIDockCategory();
+	if(!dockReloadDepth || !chosen || ![identifier respondsToSelector:@selector(predictionCategoryID)]) return %orig;
+	// The data source's own identifiers, since a renamed one is not equal to the copy in any other map
+	NSArray *identifiers = [self categoryIdentifiers];
+	SBHLibraryCategoryIdentifier *first = [identifiers firstObject];
+	if(![first respondsToSelector:@selector(predictionCategoryID)] || [first predictionCategoryID] != [identifier predictionCategoryID]) return %orig;
+	// A chosen category that was deleted, hidden or left empty is not in the map, and stock is kept
+	for(SBHLibraryCategoryIdentifier *candidate in identifiers)
+		if([candidate predictionCategoryID] == chosen) return %orig(candidate);
+	return %orig;
+}
+
+%end
+
+%end
+
 static BOOL hooksInstalled;
+static BOOL dockHooksInstalled;
 
 static void ARIInstallCategoryHooks(void) {
 	if(hooksInstalled || !objc_getClass("SBHLibraryCategoriesFolderDataSource")) return;
@@ -344,6 +401,36 @@ static void ARIInstallCategoryHooks(void) {
 	%init(LibraryCategories);
 }
 
+// Only once a dock category is chosen, and only where both methods exist
+static void ARIInstallDockHooks(void) {
+	if(dockHooksInstalled || !hooksInstalled || !ARIDockCategory()) return;
+	Class controllerClass = ARILibraryIconViewControllerClass();
+	if(![controllerClass instancesRespondToSelector:@selector(_reloadCategoryViewsForDataSourceChangeAnimated:)]) return;
+	Class dataSourceClass = objc_getClass("SBHLibraryCategoriesFolderDataSource");
+	if(![dataSourceClass instancesRespondToSelector:@selector(categoryForIdentifier:)] || ![dataSourceClass instancesRespondToSelector:@selector(categoryIdentifiers)]) return;
+	dockHooksInstalled = YES;
+	%init(LibraryDockCategory);
+}
+
+static id ARIObjectIvar(id object, const char *name) {
+	Ivar ivar = object ? class_getInstanceVariable(object_getClass(object), name) : NULL;
+	const char *type = ivar ? ivar_getTypeEncoding(ivar) : NULL;
+	if(!type || type[0] != '@') return nil;
+	return object_getIvar(object, ivar);
+}
+
+// A reload of the data source with unchanged content does not redraw the dock icon, so a
+// change of the dock category alone asks each icon controller observing it directly
+static void ARIRedrawDockIcons(void) {
+	if(!dockHooksInstalled) return;
+	NSHashTable *observers = ARIObjectIvar(liveDataSource, "_observers");
+	if(![observers isKindOfClass:[NSHashTable class]]) return;
+	Class controllerClass = ARILibraryIconViewControllerClass();
+	for(id observer in [observers allObjects])
+		if([observer isKindOfClass:controllerClass]) [observer _reloadCategoryViewsForDataSourceChangeAnimated:NO];
+}
+
+// What the App Library is built from. The dock category is left out: it changes only the dock icon.
 static NSArray *ARICategorySnapshot(void) {
 	return @[ @(categoriesEnabled), @(hideSuggestions), @(hideRecent), appOverrides ?: @{}, nameOverrides ?: @{}, categoryOrder ?: @[], appOrder ?: @{}, customCategories ?: @[] ];
 }
@@ -353,11 +440,14 @@ void ARICategoryPreferencesChanged(void) {
 	BOOL wasEnabled = categoriesEnabled;
 	BOOL wasActive = ARIHasCategoryOverrides();
 	NSArray *before = ARICategorySnapshot();
+	NSUInteger dockBefore = ARIDockCategory();
 	ARILoadCategoryPrefs();
 	if(categoriesEnabled) ARIInstallCategoryHooks();
+	ARIInstallDockHooks();
 	BOOL changed = ![before isEqual:ARICategorySnapshot()];
 	if(hooksInstalled && changed && (wasActive || ARIHasCategoryOverrides())) ARIReapplyCategories();
 	else if(categoriesEnabled && !wasEnabled && stockMap) ARIPublishCategories(stockMap, stockMap);
+	if(dockBefore != ARIDockCategory()) ARIRedrawDockIcons();
 
 	// Nothing reads the file with the switch off, and a stale one must not outlive it
 	if(wasEnabled && !categoriesEnabled) {
@@ -521,4 +611,5 @@ void ARIHandleLibraryCategoryShortcut(NSString *type, NSString *bundleID, UIView
 
 	ARILoadCategoryPrefs();
 	if(categoriesEnabled) ARIInstallCategoryHooks();
+	ARIInstallDockHooks();
 }

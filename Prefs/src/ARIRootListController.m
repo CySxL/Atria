@@ -449,6 +449,14 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
             continue;
         }
 
+        // Suggestions and Recently Added are never the dock's choice
+        if([key isEqualToString:ARILibraryDockCategoryKey]) {
+            if(![value isKindOfClass:[NSNumber class]]) continue;
+            NSUInteger categoryID = [value unsignedIntegerValue];
+            if(categoryID >= 1 && categoryID != 3 && categoryID != 4) accepted[key] = @(categoryID);
+            continue;
+        }
+
         if([key isEqualToString:ARILibraryCategoryOrderKey]) {
             if(![value isKindOfClass:[NSArray class]]) continue;
             NSMutableArray *entries = [NSMutableArray new];

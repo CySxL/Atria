@@ -67,6 +67,9 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
     NSMutableSet<NSNumber *> *_renamed;
     NSMutableSet<NSNumber *> *_deleted;
     BOOL _reordered;
+    // The category the dock's App Library icon shows, nil for the first one
+    NSNumber *_dockCategory;
+    BOOL _dockChanged;
     NSCache *_appNames;
     NSCache *_appIcons;
 }
@@ -115,6 +118,8 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
     _nameOverrides = ARIDictionary([defaults objectForKey:ARILibraryCategoryNamesKey], [NSString class]);
     _appOrder = ARIDictionary([defaults objectForKey:ARILibraryCategoryAppOrderKey], [NSArray class]);
     _customs = ARICustoms([defaults objectForKey:ARILibraryCustomCategoriesKey]);
+    id dock = [defaults objectForKey:ARILibraryDockCategoryKey];
+    _dockCategory = [dock isKindOfClass:[NSNumber class]] ? dock : nil;
 
     NSMutableDictionary *stockCategoryForApp = [NSMutableDictionary new];
     NSMutableDictionary *stockNames = [NSMutableDictionary new];
@@ -222,6 +227,12 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
             NSString *key = [categoryID stringValue];
             if(_nameOverrides[key]) names[key] = _nameOverrides[key];
             else [names removeObjectForKey:key];
+        }
+        if(_dockChanged) {
+            if(_dockCategory) [defaults setObject:_dockCategory forKey:ARILibraryDockCategoryKey];
+            else [defaults removeObjectForKey:ARILibraryDockCategoryKey];
+        } else if([_deleted containsObject:[defaults objectForKey:ARILibraryDockCategoryKey]]) {
+            [defaults removeObjectForKey:ARILibraryDockCategoryKey];
         }
         if(_reordered || [_deleted count]) {
             NSMutableArray *order = [NSMutableArray new];
@@ -339,6 +350,10 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
     if(customIndex != NSNotFound) [_customs removeObjectAtIndex:customIndex];
     [_categories removeObjectAtIndex:index];
     [_deleted addObject:categoryID];
+    if([_dockCategory isEqual:categoryID]) {
+        _dockCategory = nil;
+        _dockChanged = YES;
+    }
     _dirty = YES;
 }
 
@@ -359,7 +374,7 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if(!_loaded) return @"Open the App Library once with Custom Categories on, then come back.";
-    if(_mode == ARICategoryEditorModeOrder) return @"A new category shows in the App Library once an app is moved into it.";
+    if(_mode == ARICategoryEditorModeOrder) return @"Tap a category to rename it or show it on the dock's App Library icon. A new category shows in the App Library once an app is moved into it.";
     return nil;
 }
 
@@ -374,7 +389,7 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
     } else {
         NSDictionary *category = _categories[indexPath.row];
         cell.textLabel.text = [self _nameForID:category[@"id"]];
-        cell.imageView.image = nil;
+        cell.imageView.image = [_dockCategory isEqual:category[@"id"]] ? [UIImage systemImageNamed:@"dock.rectangle"] : nil;
         cell.detailTextLabel.text = [@([category[@"apps"] count]) stringValue];
     }
     return cell;
@@ -420,7 +435,47 @@ static NSMutableArray<NSDictionary *> *ARICustoms(id raw) {
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if(_mode == ARICategoryEditorModeOrder) [self _renameCategoryAtIndex:indexPath.row];
+    if(_mode == ARICategoryEditorModeOrder) [self _showActionsForCategoryAtIndexPath:indexPath];
+}
+
+- (void)_showActionsForCategoryAtIndexPath:(NSIndexPath *)indexPath {
+    NSUInteger index = indexPath.row;
+    NSNumber *categoryID = _categories[index][@"id"];
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:[self _nameForID:categoryID]
+                                                                   message:nil
+                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Rename"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+                                                [self _renameCategoryAtIndex:index];
+                                            }]];
+    // An empty category has no pod for the dock to show
+    if(![_dockCategory isEqual:categoryID] && [_categories[index][@"apps"] count]) {
+        [sheet addAction:[UIAlertAction actionWithTitle:@"Show in Dock"
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *action) {
+                                                    [self _setDockCategory:categoryID];
+                                                }]];
+    }
+    if(_dockCategory) {
+        [sheet addAction:[UIAlertAction actionWithTitle:@"Use First Category"
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *action) {
+                                                    [self _setDockCategory:nil];
+                                                }]];
+    }
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    UITableViewCell *cell = [self.tableView cellForRowAtIndexPath:indexPath];
+    sheet.popoverPresentationController.sourceView = cell ?: self.view;
+    sheet.popoverPresentationController.sourceRect = cell ? cell.bounds : self.view.bounds;
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)_setDockCategory:(NSNumber *)categoryID {
+    _dockCategory = categoryID;
+    _dockChanged = YES;
+    _dirty = YES;
+    [self.tableView reloadData];
 }
 
 @end
