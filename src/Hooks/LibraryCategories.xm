@@ -399,22 +399,25 @@ static id ARIObjectIvar(id object, const char *name) {
 // from the layout Apple draws that tile with. 0 until read.
 static CGFloat tileCellFraction;
 static CGFloat tileGapFraction;
+// Set when a controller was found and its layout gave no figures, so the first draw stops asking
+static BOOL tileFiguresUnavailable;
 
-static void ARIReadTileFigures(SBHLibraryIconViewController *controller) {
+static BOOL ARIReadTileFigures(SBHLibraryIconViewController *controller) {
 	id provider = ARIObjectIvar(controller, "_listLayoutProvider");
-	if(![provider respondsToSelector:@selector(layoutForIconLocation:)]) return;
+	if(![provider respondsToSelector:@selector(layoutForIconLocation:)]) return NO;
 	id layout = [provider layoutForIconLocation:@"SBIconLocationAppLibraryCategoryPodAdditionalItems"];
-	if(![layout respondsToSelector:@selector(layoutConfiguration)] || ![layout respondsToSelector:@selector(iconImageInfo)]) return;
+	if(![layout respondsToSelector:@selector(layoutConfiguration)] || ![layout respondsToSelector:@selector(iconImageInfo)]) return NO;
 	id configuration = [layout layoutConfiguration];
-	if(![configuration respondsToSelector:@selector(folderIconVisualConfiguration)]) return;
+	if(![configuration respondsToSelector:@selector(folderIconVisualConfiguration)]) return NO;
 	id visual = [configuration folderIconVisualConfiguration];
-	if(![visual respondsToSelector:@selector(gridCellSize)] || ![visual respondsToSelector:@selector(gridCellSpacing)]) return;
+	if(![visual respondsToSelector:@selector(gridCellSize)] || ![visual respondsToSelector:@selector(gridCellSpacing)]) return NO;
 	CGFloat tile = [layout iconImageInfo].size.width;
 	CGFloat cell = [visual gridCellSize].width;
 	CGFloat gap = [visual gridCellSpacing].width;
-	if(tile <= 0 || cell <= 0 || gap < 0 || 2 * cell + gap > tile) return;
+	if(tile <= 0 || cell <= 0 || gap < 0 || 2 * cell + gap > tile) return NO;
 	tileCellFraction = cell / tile;
 	tileGapFraction = gap / tile;
+	return YES;
 }
 
 %group LibraryDockCategory
@@ -422,7 +425,7 @@ static void ARIReadTileFigures(SBHLibraryIconViewController *controller) {
 %hook SBHLibraryIconViewController
 
 - (void)_reloadCategoryViewsForDataSourceChangeAnimated:(BOOL)animated {
-	if(ARIDockIconCustomized()) ARIReadTileFigures(self);
+	if(ARIDockIconCustomized() && ARIReadTileFigures(self)) tileFiguresUnavailable = NO;
 	dockReloadDepth++;
 	%orig;
 	dockReloadDepth--;
@@ -458,19 +461,24 @@ static void ARIReadTileFigures(SBHLibraryIconViewController *controller) {
 
 - (void)_updateIconImageViewAtIndex:(NSUInteger)index animated:(BOOL)animated {
 	%orig;
-	if(!ARIDockIconCustomized()) return;
-	// Unknown until a reload has read them, so the first draw asks the controller itself
-	if(tileCellFraction <= 0) {
-		UIResponder *responder = self;
-		while(responder && ![responder isKindOfClass:ARILibraryIconViewControllerClass()]) responder = [responder nextResponder];
-		if(responder) ARIReadTileFigures((SBHLibraryIconViewController *)responder);
-		if(tileCellFraction <= 0) return;
-	}
-
+	if(!ARIDockIconCustomized() || tileFiguresUnavailable) return;
 	NSArray *innerIcons = [self innerIcons];
 	if(![innerIcons isKindOfClass:[NSArray class]] || index >= [innerIcons count]) return;
 	id tile = innerIcons[index];
 	if(![tile respondsToSelector:@selector(isAdditionalItemsIndicatorIcon)] || ![tile isAdditionalItemsIndicatorIcon] || ![tile respondsToSelector:@selector(category)]) return;
+
+	// Unknown until a reload has read them, so the first draw asks the controller itself
+	if(tileCellFraction <= 0) {
+		UIResponder *responder = self;
+		while(responder && ![responder isKindOfClass:ARILibraryIconViewControllerClass()]) responder = [responder nextResponder];
+		// No controller yet is a view not in place, which the next draw retries
+		if(!responder) return;
+		if(!ARIReadTileFigures((SBHLibraryIconViewController *)responder)) {
+			tileFiguresUnavailable = YES;
+			return;
+		}
+	}
+
 	id category = [tile category];
 	id folder = [category respondsToSelector:@selector(compactPodAdditionalItemsFolder)] ? [category compactPodAdditionalItemsFolder] : nil;
 	NSArray *apps = [folder respondsToSelector:@selector(icons)] ? [folder icons] : nil;
