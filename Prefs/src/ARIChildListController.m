@@ -19,7 +19,7 @@ static NSArray<NSDictionary *> *ARIGatesForPlist(NSString *name) {
                 @{ @"switches" : @[ @"floatingDockRecents" ], @"rows" : @[ @"maxFloatingDockRecents" ] },
             ],
             @"LibraryCategories" : @[
-                @{ @"switches" : @[ @"libraryCategories" ], @"rows" : @[ @"editLibraryCategoryApps", @"orderLibraryCategories", @"resetLibraryCategories" ] },
+                @{ @"switches" : @[ @"libraryCategories" ], @"rows" : @[ @"libraryHideSuggestions", @"libraryHideRecent", @"editLibraryCategoryApps", @"orderLibraryCategories", @"resetLibraryCategories" ] },
             ],
             @"Customization" : @[
                 @{ @"switches" : @[ @"showBackground" ], @"rows" : @[ @"blurTintGroup", @"blurTintEnabled", @"blurTintColor" ] },
@@ -221,10 +221,12 @@ static UIImage *ARISwatch(UIColor *color) {
                                             handler:^(UIAlertAction *action) {
                                                 NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:ARIPreferenceDomain];
                                                 for(NSString *key in @[ ARILibraryCategoryAppsKey, ARILibraryCategoryNamesKey, ARILibraryCategoryOrderKey,
-                                                                        ARILibraryCategoryAppOrderKey, ARILibraryCustomCategoriesKey, ARILibraryCategoryNextIDKey ])
+                                                                        ARILibraryCategoryAppOrderKey, ARILibraryCustomCategoriesKey, ARILibraryCategoryNextIDKey,
+                                                                        ARILibraryHideSuggestionsKey, ARILibraryHideRecentKey ])
                                                     [defaults removeObjectForKey:key];
                                                 [defaults synchronize];
                                                 CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("me.lau.Atria/ReloadPrefs"), NULL, NULL, YES);
+                                                [self reloadSpecifiers];
                                             }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];

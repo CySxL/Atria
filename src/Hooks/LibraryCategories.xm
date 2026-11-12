@@ -42,6 +42,8 @@ static NSDictionary<NSString *, NSString *> *nameOverrides;
 static NSArray<NSString *> *categoryOrder;
 static NSDictionary<NSString *, NSArray<NSString *> *> *appOrder;
 static NSArray<NSDictionary *> *customCategories;
+static BOOL hideSuggestions;
+static BOOL hideRecent;
 
 static __weak SBHLibraryCategoriesFolderDataSource *liveDataSource;
 static SBHLibraryCategoryMap *stockMap;
@@ -53,6 +55,10 @@ static NSDictionary *publishedCategories;
 
 static BOOL ARIIsSystemCategory(NSUInteger categoryID) {
 	return categoryID == ARISuggestedCategoryID || categoryID == ARIRecentCategoryID;
+}
+
+static BOOL ARIIsHiddenCategory(NSUInteger categoryID) {
+	return (categoryID == ARISuggestedCategoryID && hideSuggestions) || (categoryID == ARIRecentCategoryID && hideRecent);
 }
 
 static NSArray<NSString *> *ARIStringArray(id raw) {
@@ -114,10 +120,13 @@ static void ARILoadCategoryPrefs(void) {
 	categoryOrder = ARIStringArray([manager rawValueForKey:ARILibraryCategoryOrderKey]);
 	appOrder = [orders copy];
 	customCategories = [customs copy];
+
+	hideSuggestions = [manager boolValueForKey:ARILibraryHideSuggestionsKey];
+	hideRecent = [manager boolValueForKey:ARILibraryHideRecentKey];
 }
 
 static BOOL ARIHasCategoryOverrides(void) {
-	return categoriesEnabled && ([appOverrides count] || [nameOverrides count] || [categoryOrder count] || [appOrder count] || [customCategories count]);
+	return categoriesEnabled && (hideSuggestions || hideRecent || [appOverrides count] || [nameOverrides count] || [categoryOrder count] || [appOrder count] || [customCategories count]);
 }
 
 static NSArray *ARIOrderedList(NSArray *list, NSArray *order) {
@@ -236,6 +245,11 @@ static SBHLibraryCategoryMap *ARIApplyCategoryOverrides(SBHLibraryCategoryMap *m
 			[names removeObjectForKey:identifier];
 			continue;
 		}
+		if(ARIIsHiddenCategory(categoryID)) {
+			[apps removeObjectForKey:identifier];
+			[names removeObjectForKey:identifier];
+			continue;
+		}
 		if(ARIIsSystemCategory(categoryID)) [system addObject:identifier];
 		else if(rank[@(categoryID)]) [ranked addObject:identifier];
 		else [rest addObject:identifier];
@@ -331,7 +345,7 @@ static void ARIInstallCategoryHooks(void) {
 }
 
 static NSArray *ARICategorySnapshot(void) {
-	return @[ @(categoriesEnabled), appOverrides ?: @{}, nameOverrides ?: @{}, categoryOrder ?: @[], appOrder ?: @{}, customCategories ?: @[] ];
+	return @[ @(categoriesEnabled), @(hideSuggestions), @(hideRecent), appOverrides ?: @{}, nameOverrides ?: @{}, categoryOrder ?: @[], appOrder ?: @{}, customCategories ?: @[] ];
 }
 
 // Called on every preference write, so the App Library is rebuilt only when a category setting changed

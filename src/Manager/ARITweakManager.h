@@ -16,6 +16,8 @@ static NSString *const ARILibraryCategoryOrderKey = @"libraryCategoryOrder";
 static NSString *const ARILibraryCategoryAppOrderKey = @"libraryCategoryAppOrder";
 static NSString *const ARILibraryCustomCategoriesKey = @"libraryCustomCategories";
 static NSString *const ARILibraryCategoryNextIDKey = @"libraryCategoryNextID";
+static NSString *const ARILibraryHideSuggestionsKey = @"libraryHideSuggestions";
+static NSString *const ARILibraryHideRecentKey = @"libraryHideRecent";
 
 static const NSTimeInterval ARIDragApplyInterval = 1.0 / 60.0;
 // Grid sizes are shorts, and 0x7F is what SpringBoard is handed once launched

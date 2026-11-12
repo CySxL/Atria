@@ -444,6 +444,11 @@ static UIImage *ARISymbol(NSString *name, CGFloat side) {
             continue;
         }
 
+        if([key isEqualToString:ARILibraryHideSuggestionsKey] || [key isEqualToString:ARILibraryHideRecentKey]) {
+            if([value isKindOfClass:[NSNumber class]]) accepted[key] = @([value boolValue]);
+            continue;
+        }
+
         if([key isEqualToString:ARILibraryCategoryOrderKey]) {
             if(![value isKindOfClass:[NSArray class]]) continue;
             NSMutableArray *entries = [NSMutableArray new];

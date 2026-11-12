@@ -16,6 +16,8 @@ static NSString *const ARILibraryCategoryOrderKey = @"libraryCategoryOrder";
 static NSString *const ARILibraryCategoryAppOrderKey = @"libraryCategoryAppOrder";
 static NSString *const ARILibraryCustomCategoriesKey = @"libraryCustomCategories";
 static NSString *const ARILibraryCategoryNextIDKey = @"libraryCategoryNextID";
+static NSString *const ARILibraryHideSuggestionsKey = @"libraryHideSuggestions";
+static NSString *const ARILibraryHideRecentKey = @"libraryHideRecent";
 
 @interface ARIListController : PSListController
 - (void)promptRespring:(id)sender;
