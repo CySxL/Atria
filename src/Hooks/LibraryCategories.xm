@@ -62,6 +62,8 @@ struct ARIIconImageInfo {
 ARI_CACHED_CLASS(ARICategoryIdentifierClass, "SBHLibraryCategoryIdentifier")
 ARI_CACHED_CLASS(ARILibraryIconViewControllerClass, "SBHLibraryIconViewController")
 ARI_CACHED_CLASS(ARICategoryStackViewClass, "SBHLibraryCategoryStackView")
+ARI_CACHED_CLASS(ARICategoryMapClass, "SBHLibraryCategoryMap")
+ARI_CACHED_CLASS(ARICategoriesDataSourceClass, "SBHLibraryCategoriesFolderDataSource")
 
 static BOOL categoriesEnabled;
 static NSDictionary<NSString *, NSNumber *> *appOverrides;
@@ -505,21 +507,56 @@ static void ARIReadTileFigures(SBHLibraryIconViewController *controller) {
 %end
 
 static BOOL hooksInstalled;
+// The firmware lacks something the overrides send, decided once per SpringBoard
+static BOOL hooksRefused;
 static BOOL dockHooksInstalled;
 
+static BOOL ARIRespondsToAll(Class cls, NSArray<NSString *> *selectors) {
+	if(!cls) return NO;
+	for(NSString *name in selectors)
+		if(![cls instancesRespondToSelector:NSSelectorFromString(name)]) return NO;
+	return YES;
+}
+
+// The IDs are read as NSUInteger, so a getter returning an object or anything narrower is refused
+static BOOL ARIReturnsInteger(Class cls, SEL selector) {
+	Method method = class_getInstanceMethod(cls, selector);
+	char type[8] = {0};
+	if(method) method_getReturnType(method, type, sizeof(type));
+	return strchr("QqLl", type[0]) && type[0];
+}
+
+static BOOL ARICategoryClassesSupported(void) {
+	Class identifier = ARICategoryIdentifierClass();
+	return ARIRespondsToAll(identifier, @[ @"initWithPredictionCategoryID:categoryIndex:localizedDisplayName:localizedDisplayNameKey:",
+										   @"predictionCategoryID", @"predictionCategoryIndex", @"localizedDisplayName", @"localizedDisplayNameKey" ])
+		&& ARIReturnsInteger(identifier, @selector(predictionCategoryID))
+		&& ARIReturnsInteger(identifier, @selector(predictionCategoryIndex))
+		&& ARIRespondsToAll(ARICategoryMapClass(), @[ @"copyWithZone:", @"categoryIdentifiers", @"sortedApplicationIdentifiersByCategoryIdentifier",
+													  @"localizedCategoryNameByCategoryIdentifier", @"setCategoryIdentifiers:",
+													  @"setSortedApplicationIdentifiersByCategoryIdentifier:", @"setLocalizedCategoryNameByCategoryIdentifier:" ])
+		&& ARIRespondsToAll(ARICategoriesDataSourceClass(), @[ @"reloadDataWithCategoryMap:", @"reloadDataSourceUsingIcons:categoryMap:" ]);
+}
+
 static void ARIInstallCategoryHooks(void) {
-	if(hooksInstalled || !objc_getClass("SBHLibraryCategoriesFolderDataSource")) return;
+	if(hooksInstalled || hooksRefused) return;
+	if(!ARICategoryClassesSupported()) {
+		hooksRefused = YES;
+		return;
+	}
 	hooksInstalled = YES;
 	%init(LibraryCategories);
 }
 
 // Only once the dock icon shows something other than Suggestions, and only where the methods exist
 static void ARIInstallDockHooks(void) {
-	if(dockHooksInstalled || !hooksInstalled || !ARIDockIconCustomized()) return;
-	Class controllerClass = ARILibraryIconViewControllerClass();
-	if(![controllerClass instancesRespondToSelector:@selector(_reloadCategoryViewsForDataSourceChangeAnimated:)]) return;
-	Class dataSourceClass = objc_getClass("SBHLibraryCategoriesFolderDataSource");
-	if(![dataSourceClass instancesRespondToSelector:@selector(categoryForIdentifier:)] || ![dataSourceClass instancesRespondToSelector:@selector(categoryIdentifiers)]) return;
+	static BOOL refused;
+	if(dockHooksInstalled || refused || !hooksInstalled || !ARIDockIconCustomized()) return;
+	if(!ARIRespondsToAll(ARILibraryIconViewControllerClass(), @[ @"_reloadCategoryViewsForDataSourceChangeAnimated:" ])
+	   || !ARIRespondsToAll(ARICategoriesDataSourceClass(), @[ @"categoryForIdentifier:", @"categoryIdentifiers" ])) {
+		refused = YES;
+		return;
+	}
 	dockHooksInstalled = YES;
 	%init(LibraryDockCategory);
 
